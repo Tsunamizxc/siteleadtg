@@ -229,13 +229,70 @@ function tg_request($method, array $params)
     return is_array($decoded) ? $decoded : array('ok' => false, 'description' => 'telegram');
 }
 
-function notify_managers(array $row)
+function lead_mark_delivered($lead_id, $chat_id)
 {
-    $chats = manager_chats();
-    if (!$chats) {
-        return false;
+    $lead_id = (int) $lead_id;
+    $chat_id = (int) $chat_id;
+    if ($lead_id < 1 || $chat_id === 0) {
+        return;
     }
 
+    $driver = (string) app_config('driver', 'sqlite');
+    if ($driver === 'mysql') {
+        $statement = db()->prepare(
+            'INSERT IGNORE INTO lead_deliveries (lead_id, chat_id, created_at) VALUES (:lead_id, :chat_id, :created_at)'
+        );
+    } else {
+        $statement = db()->prepare(
+            'INSERT OR IGNORE INTO lead_deliveries (lead_id, chat_id, created_at) VALUES (:lead_id, :chat_id, :created_at)'
+        );
+    }
+    $statement->execute(array(
+        'lead_id' => $lead_id,
+        'chat_id' => $chat_id,
+        'created_at' => time(),
+    ));
+    lead_finish_if_complete($lead_id);
+}
+
+function lead_undelivered_chats($lead_id)
+{
+    $statement = db()->prepare(
+        'SELECT chats.telegram_id, chats.chat_id, chats.kind
+         FROM chats
+         WHERE NOT EXISTS (
+            SELECT 1 FROM lead_deliveries
+            WHERE lead_deliveries.lead_id = :lead_id
+            AND lead_deliveries.chat_id = chats.chat_id
+         )'
+    );
+    $statement->execute(array('lead_id' => (int) $lead_id));
+    $chats = array();
+    foreach ($statement->fetchAll() as $row) {
+        $chats[] = array(
+            'telegram_id' => (int) $row['telegram_id'],
+            'chat_id' => (int) $row['chat_id'],
+            'kind' => (string) $row['kind'],
+        );
+    }
+
+    return $chats;
+}
+
+function lead_finish_if_complete($lead_id)
+{
+    if (lead_undelivered_chats($lead_id)) {
+        return;
+    }
+    if (!manager_chats()) {
+        return;
+    }
+    leads_mark_notified($lead_id);
+}
+
+function notify_managers(array $row)
+{
+    $chats = lead_undelivered_chats($row['id']);
     $sent = false;
     foreach ($chats as $chat) {
         $result = tg_request('sendMessage', array(
@@ -246,6 +303,7 @@ function notify_managers(array $row)
             'reply_markup' => lead_keyboard($chat['chat_id'], $chat['kind']),
         ));
         if (!empty($result['ok'])) {
+            lead_mark_delivered($row['id'], $chat['chat_id']);
             $sent = true;
             continue;
         }
@@ -257,5 +315,6 @@ function notify_managers(array $row)
         }
     }
 
+    lead_finish_if_complete($row['id']);
     return $sent;
 }

@@ -91,8 +91,8 @@ function leads_create(array $input)
 
     $id = (int) db()->lastInsertId();
     $row = leads_get($id);
-    if ($row && notify_managers($row)) {
-        leads_mark_notified($id);
+    if ($row) {
+        notify_managers($row);
     }
 
     return array('ok' => true, 'id' => $id, 'duplicate' => false);
@@ -204,15 +204,38 @@ function leads_pending()
 
     $items = array();
     foreach ($statement->fetchAll() as $row) {
+        $chats = lead_undelivered_chats($row['id']);
+        if (!$chats) {
+            lead_finish_if_complete($row['id']);
+            continue;
+        }
         $items[] = array(
             'id' => (int) $row['id'],
             'text' => lead_message($row),
-            'reply_markup' => lead_keyboard(),
-            'chats' => manager_chats(),
+            'chats' => $chats,
         );
     }
 
     return array('ok' => true, 'items' => $items);
+}
+
+function leads_ack_deliveries(array $pairs)
+{
+    $updated = 0;
+    foreach ($pairs as $pair) {
+        if (!is_array($pair)) {
+            continue;
+        }
+        $lead_id = isset($pair['id']) ? (int) $pair['id'] : 0;
+        $chat_id = isset($pair['chat_id']) ? (int) $pair['chat_id'] : 0;
+        if ($lead_id < 1 || $chat_id === 0) {
+            continue;
+        }
+        lead_mark_delivered($lead_id, $chat_id);
+        $updated += 1;
+    }
+
+    return array('ok' => true, 'updated' => $updated);
 }
 
 function leads_ack(array $ids)

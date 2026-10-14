@@ -45,6 +45,10 @@ try {
     if ($action === 'ack' && $method === 'POST') {
         require_bot();
         $body = read_json();
+        $deliveries = isset($body['deliveries']) && is_array($body['deliveries']) ? $body['deliveries'] : array();
+        if ($deliveries) {
+            json_out(leads_ack_deliveries($deliveries));
+        }
         $ids = isset($body['ids']) && is_array($body['ids']) ? $body['ids'] : array();
         json_out(leads_ack($ids));
     }

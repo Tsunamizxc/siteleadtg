@@ -105,6 +105,7 @@ function db_migrate(PDO $pdo, $driver)
         );
         db_migrate_access($pdo, 'mysql');
         db_migrate_office($pdo, 'mysql');
+        db_migrate_deliveries($pdo, 'mysql');
         return;
     }
 
@@ -140,6 +141,7 @@ function db_migrate(PDO $pdo, $driver)
     $pdo->exec('CREATE INDEX IF NOT EXISTS leads_status ON leads (status, created_at)');
     db_migrate_access($pdo, 'sqlite');
     db_migrate_office($pdo, 'sqlite');
+    db_migrate_deliveries($pdo, 'sqlite');
 }
 
 function db_add_column(PDO $pdo, $driver, $table, $column, $definition)
@@ -333,4 +335,56 @@ function db_migrate_office(PDO $pdo, $driver)
             created_at INTEGER NOT NULL
         )'
     );
+}
+
+function db_migrate_deliveries(PDO $pdo, $driver)
+{
+    if ($driver === 'mysql') {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS lead_deliveries (
+                lead_id INT UNSIGNED NOT NULL,
+                chat_id BIGINT NOT NULL,
+                created_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (lead_id, chat_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $insert = 'INSERT IGNORE INTO lead_deliveries (lead_id, chat_id, created_at)
+            SELECT leads.id, chats.chat_id, :now
+            FROM leads
+            JOIN chats ON chats.chat_id > 0
+            WHERE leads.notified = 1';
+    } else {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS lead_deliveries (
+                lead_id INTEGER NOT NULL,
+                chat_id INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (lead_id, chat_id)
+            )'
+        );
+        $insert = 'INSERT OR IGNORE INTO lead_deliveries (lead_id, chat_id, created_at)
+            SELECT leads.id, chats.chat_id, :now
+            FROM leads
+            JOIN chats ON chats.chat_id > 0
+            WHERE leads.notified = 1';
+    }
+
+    $now = time();
+    $statement = $pdo->prepare($insert);
+    $statement->execute(array('now' => $now));
+    $reopen = $pdo->prepare(
+        'UPDATE leads SET notified = 0
+         WHERE notified = 1
+         AND status <> \'cancelled\'
+         AND created_at >= :since
+         AND EXISTS (
+            SELECT 1 FROM chats
+            WHERE NOT EXISTS (
+                SELECT 1 FROM lead_deliveries
+                WHERE lead_deliveries.lead_id = leads.id
+                AND lead_deliveries.chat_id = chats.chat_id
+            )
+         )'
+    );
+    $reopen->execute(array('since' => $now - 172800));
 }

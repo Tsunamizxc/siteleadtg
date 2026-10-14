@@ -1,0 +1,9 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^lib/ - [F,L]
+RewriteRule ^data/ - [F,L]
+RewriteRule ^config(\.sample)?\.php$ - [F,L]
+RewriteRule ^schema\.sql$ - [F,L]
+</IfModule>

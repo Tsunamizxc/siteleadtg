@@ -1,0 +1,32 @@
+CREATE DATABASE IF NOT EXISTS cursiva_leads CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE cursiva_leads;
+
+CREATE TABLE IF NOT EXISTS leads (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  attempt VARCHAR(80) NULL,
+  name VARCHAR(160) NOT NULL DEFAULT '',
+  phone VARCHAR(40) NOT NULL DEFAULT '',
+  source VARCHAR(255) NOT NULL DEFAULT '',
+  service VARCHAR(255) NOT NULL DEFAULT '',
+  page VARCHAR(500) NOT NULL DEFAULT '',
+  description TEXT NOT NULL,
+  promo VARCHAR(80) NOT NULL DEFAULT '',
+  messenger VARCHAR(80) NOT NULL DEFAULT '',
+  city VARCHAR(160) NOT NULL DEFAULT '',
+  form_type VARCHAR(40) NOT NULL DEFAULT '',
+  traffic VARCHAR(80) NOT NULL DEFAULT '',
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  notified TINYINT NOT NULL DEFAULT 0,
+  created_at INT UNSIGNED NOT NULL,
+  updated_at INT UNSIGNED NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY attempt_unique (attempt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS managers (
+  telegram_id BIGINT NOT NULL,
+  chat_id BIGINT NOT NULL,
+  name VARCHAR(160) NOT NULL DEFAULT '',
+  created_at INT UNSIGNED NOT NULL,
+  PRIMARY KEY (telegram_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

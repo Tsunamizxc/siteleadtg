@@ -81,6 +81,7 @@ function present_lead(array $row)
         'traffic' => (string) $row['traffic'],
         'form_type' => (string) $row['form_type'],
         'status' => (string) $row['status'],
+        'note' => isset($row['note']) ? (string) $row['note'] : '',
         'created_label' => $created ? format_moment($created) : '',
         'updated_label' => ($updated && $updated !== $created) ? format_moment($updated) : '',
     );
@@ -128,6 +129,10 @@ function lead_message(array $row)
         $lines[] = '';
         $lines[] = h($row['page']);
     }
+    if (trim((string) (isset($row['note']) ? $row['note'] : '')) !== '') {
+        $lines[] = '';
+        $lines[] = 'Заметка: ' . h($row['note']);
+    }
     $lines[] = '';
     $lines[] = 'Статус: ' . h(lead_status_label($row['status']));
 
@@ -147,7 +152,7 @@ function lead_keyboard()
         'inline_keyboard' => array(
             array(
                 array(
-                    'text' => 'Открыть заявки',
+                    'text' => 'Открыть офис',
                     'web_app' => array('url' => $url),
                 ),
             ),
@@ -157,7 +162,11 @@ function lead_keyboard()
 
 function manager_chats()
 {
-    $rows = db()->query('SELECT telegram_id, chat_id, name FROM managers')->fetchAll();
+    $rows = db()->query('SELECT telegram_id, chat_id FROM chats')->fetchAll();
+    if (!$rows) {
+        $rows = db()->query('SELECT telegram_id, chat_id FROM managers')->fetchAll();
+    }
+
     $chats = array();
     foreach ($rows as $row) {
         $chats[] = array(
@@ -227,9 +236,9 @@ function notify_managers(array $row)
         }
 
         $description = isset($result['description']) ? (string) $result['description'] : '';
-        if (preg_match('/blocked|chat not found|deactivated/i', $description)) {
-            $drop = db()->prepare('DELETE FROM managers WHERE telegram_id = :id');
-            $drop->execute(array('id' => $chat['telegram_id']));
+        if (preg_match('/blocked|chat not found|deactivated|kicked/i', $description)) {
+            $drop = db()->prepare('DELETE FROM chats WHERE chat_id = :id');
+            $drop->execute(array('id' => $chat['chat_id']));
         }
     }
 

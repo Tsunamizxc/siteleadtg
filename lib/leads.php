@@ -31,6 +31,16 @@ function leads_mark_notified($id)
     $statement->execute(array('id' => (int) $id));
 }
 
+function leads_create_manual(array $input)
+{
+    $source = clip_text(isset($input['source']) ? $input['source'] : '', 255);
+    $input['source'] = $source !== '' ? $source : 'вручную';
+    $input['form_type'] = 'manual';
+    $input['traffic'] = '';
+    $input['attempt'] = 'manual-' . bin2hex(random_bytes(8));
+    return leads_create($input);
+}
+
 function leads_create(array $input)
 {
     $phone = clip_text(isset($input['phone']) ? $input['phone'] : '', 40);
@@ -138,15 +148,32 @@ function leads_list($status)
     );
 }
 
+function leads_set_note($id, $note)
+{
+    $current = leads_get($id);
+    if (!$current) {
+        json_out(array('ok' => false, 'error' => 'missing', 'message' => 'Заявка не найдена.'), 404);
+    }
+
+    $statement = db()->prepare('UPDATE leads SET note = :note, updated_at = :updated_at WHERE id = :id');
+    $statement->execute(array(
+        'note' => clip_text($note, 2000),
+        'updated_at' => time(),
+        'id' => (int) $id,
+    ));
+
+    return array('ok' => true, 'lead' => present_lead(leads_get($id)));
+}
+
 function leads_set_status($id, $status)
 {
     if (!in_array($status, lead_statuses(), true)) {
-        json_out(array('ok' => false, 'error' => 'status'), 400);
+        json_out(array('ok' => false, 'error' => 'status', 'message' => 'Такого статуса нет.'), 400);
     }
 
     $current = leads_get($id);
     if (!$current) {
-        json_out(array('ok' => false, 'error' => 'missing'), 404);
+        json_out(array('ok' => false, 'error' => 'missing', 'message' => 'Заявка не найдена.'), 404);
     }
 
     $statement = db()->prepare('UPDATE leads SET status = :status, updated_at = :updated_at WHERE id = :id');

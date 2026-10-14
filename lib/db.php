@@ -103,6 +103,8 @@ function db_migrate(PDO $pdo, $driver)
                 PRIMARY KEY (telegram_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+        db_migrate_access($pdo, 'mysql');
+        db_migrate_office($pdo, 'mysql');
         return;
     }
 
@@ -136,4 +138,199 @@ function db_migrate(PDO $pdo, $driver)
         )'
     );
     $pdo->exec('CREATE INDEX IF NOT EXISTS leads_status ON leads (status, created_at)');
+    db_migrate_access($pdo, 'sqlite');
+    db_migrate_office($pdo, 'sqlite');
+}
+
+function db_add_column(PDO $pdo, $driver, $table, $column, $definition)
+{
+    if ($driver === 'mysql') {
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
+        );
+        $statement->execute(array(
+            'table_name' => $table,
+            'column_name' => $column,
+        ));
+        if ((int) $statement->fetchColumn() > 0) {
+            return;
+        }
+        $pdo->exec('ALTER TABLE `' . $table . '` ADD COLUMN `' . $column . '` ' . $definition);
+        return;
+    }
+
+    $columns = $pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll();
+    foreach ($columns as $info) {
+        if ((string) $info['name'] === $column) {
+            return;
+        }
+    }
+    $pdo->exec('ALTER TABLE ' . $table . ' ADD COLUMN ' . $column . ' ' . $definition);
+}
+
+function db_migrate_access(PDO $pdo, $driver)
+{
+    db_add_column($pdo, $driver, 'leads', 'note', $driver === 'mysql' ? 'TEXT NULL' : 'TEXT NOT NULL DEFAULT ""');
+
+    if ($driver === 'mysql') {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS allowed_users (
+                telegram_id BIGINT NOT NULL,
+                name VARCHAR(160) NOT NULL DEFAULT "",
+                role VARCHAR(20) NOT NULL DEFAULT "member",
+                created_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (telegram_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS chats (
+                chat_id BIGINT NOT NULL,
+                telegram_id BIGINT NOT NULL DEFAULT 0,
+                title VARCHAR(255) NOT NULL DEFAULT "",
+                kind VARCHAR(20) NOT NULL DEFAULT "private",
+                created_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (chat_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+    } else {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS allowed_users (
+                telegram_id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL DEFAULT "",
+                role TEXT NOT NULL DEFAULT "member",
+                created_at INTEGER NOT NULL
+            )'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS chats (
+                chat_id INTEGER PRIMARY KEY,
+                telegram_id INTEGER NOT NULL DEFAULT 0,
+                title TEXT NOT NULL DEFAULT "",
+                kind TEXT NOT NULL DEFAULT "private",
+                created_at INTEGER NOT NULL
+            )'
+        );
+    }
+
+    $managers = $pdo->query('SELECT telegram_id, chat_id, name, created_at FROM managers')->fetchAll();
+    $has_owner = (int) $pdo->query("SELECT COUNT(*) FROM allowed_users WHERE role = 'owner'")->fetchColumn() > 0;
+    $insert_user = $pdo->prepare(
+        'INSERT INTO allowed_users (telegram_id, name, role, created_at) VALUES (:telegram_id, :name, :role, :created_at)'
+    );
+    $insert_chat = $pdo->prepare(
+        'INSERT INTO chats (chat_id, telegram_id, title, kind, created_at) VALUES (:chat_id, :telegram_id, :title, :kind, :created_at)'
+    );
+
+    foreach ($managers as $manager) {
+        $telegram_id = (int) $manager['telegram_id'];
+        $exists = $pdo->prepare('SELECT telegram_id FROM allowed_users WHERE telegram_id = :id');
+        $exists->execute(array('id' => $telegram_id));
+        if (!$exists->fetch()) {
+            $role = $has_owner ? 'member' : 'owner';
+            $has_owner = true;
+            $insert_user->execute(array(
+                'telegram_id' => $telegram_id,
+                'name' => (string) $manager['name'],
+                'role' => $role,
+                'created_at' => (int) $manager['created_at'],
+            ));
+        }
+
+        $chat_exists = $pdo->prepare('SELECT chat_id FROM chats WHERE chat_id = :id');
+        $chat_exists->execute(array('id' => (int) $manager['chat_id']));
+        if (!$chat_exists->fetch()) {
+            $insert_chat->execute(array(
+                'chat_id' => (int) $manager['chat_id'],
+                'telegram_id' => $telegram_id,
+                'title' => (string) $manager['name'],
+                'kind' => 'private',
+                'created_at' => (int) $manager['created_at'],
+            ));
+        }
+    }
+}
+
+function db_migrate_office(PDO $pdo, $driver)
+{
+    if ($driver === 'mysql') {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS tasks (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                title VARCHAR(255) NOT NULL,
+                details TEXT NOT NULL,
+                done TINYINT NOT NULL DEFAULT 0,
+                created_by BIGINT NOT NULL DEFAULT 0,
+                created_at INT UNSIGNED NOT NULL,
+                updated_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS work_projects (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                name VARCHAR(255) NOT NULL,
+                client VARCHAR(160) NOT NULL DEFAULT "",
+                amount_cents BIGINT NOT NULL DEFAULT 0,
+                status VARCHAR(20) NOT NULL DEFAULT "progress",
+                created_by BIGINT NOT NULL DEFAULT 0,
+                created_at INT UNSIGNED NOT NULL,
+                updated_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS money_entries (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                kind VARCHAR(20) NOT NULL,
+                amount_cents BIGINT NOT NULL,
+                title VARCHAR(255) NOT NULL DEFAULT "",
+                project_id INT UNSIGNED NULL,
+                happened_on DATE NOT NULL,
+                note TEXT NOT NULL,
+                created_by BIGINT NOT NULL DEFAULT 0,
+                created_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (id),
+                KEY money_happened (happened_on),
+                KEY money_project (project_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        return;
+    }
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            details TEXT NOT NULL DEFAULT "",
+            done INTEGER NOT NULL DEFAULT 0,
+            created_by INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS work_projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            client TEXT NOT NULL DEFAULT "",
+            amount_cents INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT "progress",
+            created_by INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        )'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS money_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            amount_cents INTEGER NOT NULL,
+            title TEXT NOT NULL DEFAULT "",
+            project_id INTEGER,
+            happened_on TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT "",
+            created_by INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )'
+    );
 }

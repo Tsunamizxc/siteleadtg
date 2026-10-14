@@ -93,7 +93,7 @@ function require_manager()
         json_out(array('ok' => false, 'error' => 'auth'), 401);
     }
 
-    $statement = db()->prepare('SELECT telegram_id, chat_id, name FROM managers WHERE telegram_id = :id');
+    $statement = db()->prepare('SELECT telegram_id, name, role FROM allowed_users WHERE telegram_id = :id');
     $statement->execute(array('id' => (int) $user['id']));
     $manager = $statement->fetch();
     if (!$manager) {

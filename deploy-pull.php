@@ -18,8 +18,8 @@ if (!is_readable($configFile)) {
 $config = require $configFile;
 $secret = trim((string) ($config['secret'] ?? ''));
 $branch = (string) ($config['branch'] ?? 'main');
-$command = (string) ($config['pull_command'] ?? '');
 $diagKey = trim((string) ($config['diag_key'] ?? ''));
+$flag = dirname($configFile) . '/pull.request';
 
 if (isset($_GET['diag'])) {
     $got = trim((string) $_GET['diag']);
@@ -28,10 +28,10 @@ if (isset($_GET['diag'])) {
         exit("Forbidden\n");
     }
     echo "deploy-pull ok\nbranch={$branch}\n";
-    if (!isset($_GET['pull'])) {
-        exit;
+    if (isset($_GET['pull'])) {
+        deploy_queue($flag);
     }
-    deploy_run($command);
+    exit;
 }
 
 $raw = file_get_contents('php://input');
@@ -50,19 +50,14 @@ if (is_array($event) && !empty($event['ref']) && $event['ref'] !== 'refs/heads/'
     exit("Ignored {$event['ref']}\n");
 }
 
-deploy_run($command);
+deploy_queue($flag);
 
-function deploy_run(string $command): void
+function deploy_queue(string $flag): void
 {
-    if ($command === '') {
+    if (@file_put_contents($flag, gmdate('c') . "\n") === false) {
         http_response_code(500);
-        exit("Pull command is empty.\n");
+        exit("Could not queue the pull.\n");
     }
-
-    $output = array();
-    $code = 1;
-    exec($command . ' 2>&1', $output, $code);
-    echo implode("\n", $output) . "\nexit={$code}\n";
-    http_response_code($code === 0 ? 200 : 500);
+    echo "queued\n";
     exit;
 }

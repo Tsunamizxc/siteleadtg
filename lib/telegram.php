@@ -144,8 +144,22 @@ function lead_message(array $row)
     return $text;
 }
 
-function lead_keyboard()
+function lead_keyboard($chat_id = 0, $kind = 'private')
 {
+    $group = (int) $chat_id < 0 || $kind === 'group' || $kind === 'supergroup';
+    if ($group) {
+        return array(
+            'inline_keyboard' => array(
+                array(
+                    array(
+                        'text' => 'Открыть офис',
+                        'url' => 'https://t.me/cursivalead_bot?startapp',
+                    ),
+                ),
+            ),
+        );
+    }
+
     $url = (string) app_config('web_app_url', 'https://cursivalead.cursiva-dev.ru/');
 
     return array(
@@ -162,7 +176,7 @@ function lead_keyboard()
 
 function manager_chats()
 {
-    $rows = db()->query('SELECT telegram_id, chat_id FROM chats')->fetchAll();
+    $rows = db()->query('SELECT telegram_id, chat_id, kind FROM chats')->fetchAll();
     if (!$rows) {
         $rows = db()->query('SELECT telegram_id, chat_id FROM managers')->fetchAll();
     }
@@ -172,6 +186,7 @@ function manager_chats()
         $chats[] = array(
             'telegram_id' => (int) $row['telegram_id'],
             'chat_id' => (int) $row['chat_id'],
+            'kind' => isset($row['kind']) ? (string) $row['kind'] : 'private',
         );
     }
 
@@ -228,7 +243,7 @@ function notify_managers(array $row)
             'text' => lead_message($row),
             'parse_mode' => 'HTML',
             'disable_web_page_preview' => true,
-            'reply_markup' => lead_keyboard(),
+            'reply_markup' => lead_keyboard($chat['chat_id'], $chat['kind']),
         ));
         if (!empty($result['ok'])) {
             $sent = true;

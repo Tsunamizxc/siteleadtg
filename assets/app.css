@@ -934,3 +934,30 @@ body.is-locked { overflow: hidden; }
 }
 
 .lead__delete:hover { color: #c2410c; }
+
+.finance-box {
+  position: fixed;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  display: none;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--c-cream);
+}
+
+.finance-box.is-on { display: block; }
+
+.finance-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--c-cream);
+}
+
+body.is-finance { overflow: hidden; }
+body.is-finance #page,
+body.is-finance .app > .brand { display: none; }

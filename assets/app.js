@@ -133,8 +133,65 @@
   const PAGES = [
     { id: "leads", label: "Заявки" },
     { id: "tasks", label: "Задачи" },
-    { id: "finance", label: "Финансы", href: "finance/" },
+    { id: "finance", label: "Финансы" },
   ];
+
+  let financeBox = null;
+
+  function financeView(show) {
+    if (!financeBox) {
+      financeBox = el("div", "finance-box");
+      const frame = el("iframe", "finance-frame");
+      frame.src = "finance/?embed=1";
+      frame.title = "Финансы";
+      financeBox.append(frame);
+      document.body.append(financeBox);
+    }
+    financeBox.classList.toggle("is-on", show);
+    document.body.classList.toggle("is-finance", show);
+    if (show) {
+      const win = financeWindow();
+      window.cursivaFinanceDepth(!!(win && win.location.hash.indexOf("/") !== -1));
+    }
+  }
+
+  function financeWindow() {
+    const frame = financeBox && financeBox.querySelector("iframe");
+    try {
+      return frame ? frame.contentWindow : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function refreshFinance() {
+    const win = financeWindow();
+    if (win && typeof win.refreshFromServer === "function") win.refreshFromServer();
+  }
+
+  window.cursivaFinanceDepth = function (deep) {
+    if (!tg || !tg.BackButton || state.page !== "finance") return;
+    if (deep) tg.BackButton.show();
+    else tg.BackButton.hide();
+  };
+
+  function financeBack() {
+    const win = financeWindow();
+    if (!win) return false;
+    const dialogs = win.document.querySelectorAll("dialog[open]");
+    if (dialogs.length) {
+      dialogs.forEach(function (dialog) { dialog.close(); });
+      window.cursivaFinanceDepth(win.location.hash.indexOf("/") !== -1);
+      return true;
+    }
+    if (win.location.hash.indexOf("/") !== -1) {
+      const page = win.location.hash.slice(1).split("/")[0];
+      const list = { project: "projects", client: "clients", invoice: "invoices", kpi: "dashboard" };
+      win.location.hash = list[page] || "dashboard";
+      return true;
+    }
+    return false;
+  }
 
   function renderShell() {
     root.replaceChildren();
@@ -156,16 +213,16 @@
       button.textContent = page.label;
       button.classList.toggle("is-on", state.page === page.id);
       button.addEventListener("click", function () {
-        if (page.href) {
-          window.location.href = page.href;
-          return;
-        }
+        if (state.page === page.id && page.id !== "finance") return;
+        closeSheet();
         state.page = page.id;
         state.form = "";
         try { sessionStorage.setItem("cursiva-page", page.id); } catch (error) { /* приватный режим */ }
         if (!document.getElementById("page")) renderShell();
         else paint();
-        load(false);
+        window.scrollTo(0, 0);
+        if (page.id === "finance") refreshFinance();
+        else load(false);
       });
       nav.append(button);
     });
@@ -328,6 +385,8 @@
     if (!slot) return;
     const nav = document.querySelector(".nav");
     if (nav) nav.replaceWith(navBar());
+    financeView(state.page === "finance");
+    if (state.page === "finance") return;
     slot.replaceChildren();
     if (state.page === "tasks") paintTasks(slot);
     else paintLeads(slot);
@@ -1182,34 +1241,34 @@
     }
     const startParam = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || "";
     const asked = new URLSearchParams(window.location.search).get("page") || startParam;
-    let opened = false;
+    const known = ["leads", "tasks", "finance"];
+    let launch = "";
     try {
-      opened = sessionStorage.getItem("cursiva-opened") === "1";
-      sessionStorage.setItem("cursiva-opened", "1");
-    } catch (error) {
-      /* приватный режим */
-    }
-    if (asked === "finance" && !opened) {
-      window.location.replace("finance/");
-      return;
-    }
-    try {
+      launch = sessionStorage.getItem("cursiva-launch") || "";
+      sessionStorage.setItem("cursiva-launch", initData());
       const saved = sessionStorage.getItem("cursiva-page");
-      if (saved === "leads" || saved === "tasks") state.page = saved;
+      if (known.indexOf(saved) !== -1) state.page = saved;
     } catch (error) {
       /* приватный режим */
     }
-    if (!opened && (asked === "tasks" || asked === "leads")) state.page = asked;
+    if (launch !== initData() && known.indexOf(asked) !== -1) state.page = asked;
     renderShell();
     load(false);
     setInterval(function () {
+      if (state.page === "finance") return;
       if (state.mode === "ready" && !state.busy && !state.form && !state.saving && !state.sheet) load(false);
     }, 20000);
     if (tg) {
       tg.onEvent("activated", function () {
-        if (state.mode === "ready" && !state.sheet) load(false);
+        if (state.page === "finance") refreshFinance();
+        else if (state.mode === "ready" && !state.sheet) load(false);
       });
-      if (tg.BackButton) tg.BackButton.onClick(closeSheet);
+      if (tg.BackButton) {
+        tg.BackButton.onClick(function () {
+          if (state.page === "finance") financeBack();
+          else closeSheet();
+        });
+      }
     }
   }
 

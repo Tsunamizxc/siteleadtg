@@ -1,5 +1,17 @@
 const STORAGE_KEY = "cursiva-finance-html-v3";
-const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+const EMBED = new URLSearchParams(location.search).get("embed") === "1" && window.parent !== window;
+const tg = !EMBED && window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (EMBED) document.documentElement.classList.add("is-embed");
+
+function reportDepth() {
+  if (!EMBED) return;
+  try {
+    const deep = location.hash.includes("/") || !!document.querySelector("dialog[open]");
+    if (typeof window.parent.cursivaFinanceDepth === "function") window.parent.cursivaFinanceDepth(deep);
+  } catch {
+    /* офис недоступен */
+  }
+}
 const WP = { office: true };
 const API_ACTIONS = {
   seed: "finance_seed",
@@ -11,6 +23,14 @@ let saveChain = Promise.resolve();
 
 function initData() {
   if (tg && tg.initData) return tg.initData;
+  if (EMBED) {
+    try {
+      const office = window.parent.Telegram && window.parent.Telegram.WebApp;
+      if (office && office.initData) return office.initData;
+    } catch {
+      /* офис недоступен */
+    }
+  }
   const params = new URLSearchParams(location.hash.slice(1));
   if (params.get("tgWebAppData")) return params.get("tgWebAppData");
   try {
@@ -1559,6 +1579,7 @@ function render() {
   page.innerHTML = html;
   bindPageEvents();
   closeMobile();
+  reportDepth();
 }
 
 function bindPageEvents() {
@@ -1785,6 +1806,7 @@ function showProjectSplit(projectId) {
     </div>`;
   $("#form-submit").hidden = true;
   $("#form-modal").showModal();
+  reportDepth();
 }
 
 function openForm({ eyebrow, title, desc, bodyHtml, onSubmit }) {
@@ -1795,6 +1817,7 @@ function openForm({ eyebrow, title, desc, bodyHtml, onSubmit }) {
   $("#form-body").innerHTML = bodyHtml;
   $("#form-submit").hidden = false;
   $("#form-modal").showModal();
+  reportDepth();
 }
 
 function openProjectForm() {
@@ -2346,10 +2369,17 @@ function openSettings() {
   const k = kpis(state, from, to);
   $("#settings-kpi").textContent = `Этот месяц: выручка ${formatMoney(k.income)}, НПД в проектах ${formatMoney(k.taxDue)}`;
   $("#settings-modal").showModal();
+  reportDepth();
 }
 
 function wireUi() {
-  window.addEventListener("hashchange", render);
+  window.addEventListener("hashchange", () => {
+    render();
+    window.scrollTo(0, 0);
+  });
+  document.querySelectorAll("dialog").forEach((dialog) => {
+    dialog.addEventListener("close", reportDepth);
+  });
   $("#menu-toggle").addEventListener("click", openMobile);
   $("#overlay").addEventListener("click", closeMobile);
   $("#open-settings").addEventListener("click", openSettings);
@@ -2527,6 +2557,6 @@ main().catch((err) => {
       denied
         ? "Нет доступа. Финансы открыты только команде Cursiva — откройте офис кнопкой в боте."
         : "Не удалось загрузить финансы. Проверьте связь и откройте ещё раз."
-    }</p><p><a class="btn btn-ghost" href="../">← В офис</a></p>`;
+    }</p><p><button type="button" class="btn btn-ghost" onclick="location.reload()">Обновить</button></p>`;
   }
 });

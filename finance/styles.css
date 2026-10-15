@@ -773,3 +773,7 @@ th.check, td.check { width: 2.4rem; text-align: center; }
   .btn:active, .refresh:active { transform: none; }
   .skeleton .sk { animation: none; }
 }
+
+.is-embed .tabbar { display: none; }
+.is-embed .app { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+.is-embed .toast { bottom: 16px; }

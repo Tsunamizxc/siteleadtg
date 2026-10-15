@@ -920,3 +920,17 @@ body.is-locked { overflow: hidden; }
   .panel { animation: none; }
   .metrics__bar span { transition: none; }
 }
+
+.lead__delete {
+  margin-top: 10px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--c-muted);
+  font: 500 13px/1.2 var(--f-body);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.lead__delete:hover { color: #c2410c; }

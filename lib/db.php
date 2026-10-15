@@ -242,9 +242,28 @@ function db_migrate_board(PDO $pdo, $driver)
                 PRIMARY KEY (id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS notify_outbox (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                chat_id BIGINT NOT NULL,
+                text TEXT NOT NULL,
+                page VARCHAR(20) NOT NULL DEFAULT "",
+                created_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
         return;
     }
 
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS notify_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            page TEXT NOT NULL DEFAULT "",
+            created_at INTEGER NOT NULL
+        )'
+    );
     $pdo->exec(
         'CREATE TABLE IF NOT EXISTS task_comments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

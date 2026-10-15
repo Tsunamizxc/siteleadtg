@@ -4,50 +4,49 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="theme-color" content="#1a1a1a">
+  <meta name="theme-color" content="#fff7f0">
   <title>Финансы — Cursiva</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Onest:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=1">
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar" id="sidebar">
-      <a class="brand" href="#dashboard">
-        <div class="brand-mark">Cv</div>
-        <div>
-          <div class="brand-title">Cursiva</div>
-          <div class="brand-sub">Finance</div>
-        </div>
-      </a>
-      <nav class="nav" id="nav"></nav>
-      <a class="nav-settings nav-office" href="../">← В офис</a>
-      <button type="button" class="nav-settings" id="open-settings">Настройки</button>
-    </aside>
+    <header class="top">
+      <div>
+        <p class="brand">Cursiva · финансы</p>
+        <p class="top-title">Деньги студии</p>
+      </div>
+      <button type="button" class="refresh" id="open-settings">Настройки</button>
+    </header>
+    <nav class="chips" id="nav" aria-label="Разделы финансов"></nav>
 
-    <div class="main-wrap">
-      <header class="topbar">
-        <button type="button" class="icon-btn" id="menu-toggle" aria-label="Меню">☰</button>
-        <span class="topbar-title">Финансы</span>
-        <a class="icon-btn topbar-office" href="../" aria-label="В офис">Офис</a>
-        <button type="button" class="icon-btn" id="open-settings-mobile" aria-label="Настройки">⚙</button>
-      </header>
-      <main class="main" id="main">
-        <div class="skeleton" id="skeleton">
-          <div class="sk sk-title"></div>
-          <div class="sk-grid">
-            <div class="sk sk-card"></div>
-            <div class="sk sk-card"></div>
-            <div class="sk sk-card"></div>
-          </div>
+    <main class="main" id="main">
+      <div class="skeleton" id="skeleton">
+        <div class="sk sk-title"></div>
+        <div class="sk-grid">
+          <div class="sk sk-card"></div>
+          <div class="sk sk-card"></div>
+          <div class="sk sk-card"></div>
         </div>
-        <div id="page" hidden></div>
-      </main>
-    </div>
+      </div>
+      <div id="page" hidden></div>
+    </main>
   </div>
 
+  <nav class="tabbar" aria-label="Офис">
+    <a href="../" data-office="leads">Заявки</a>
+    <a href="../" data-office="tasks">Задачи</a>
+    <a href="#dashboard" class="is-on" aria-current="page">Финансы</a>
+  </nav>
+
+  <div hidden>
+    <aside id="sidebar"></aside>
+    <button type="button" id="menu-toggle"></button>
+    <button type="button" id="open-settings-mobile"></button>
+  </div>
   <div class="overlay" id="overlay" hidden></div>
 
   <dialog class="modal" id="settings-modal">
@@ -102,6 +101,6 @@
 
   <div class="toast" id="toast" hidden></div>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="app.js?v=1"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

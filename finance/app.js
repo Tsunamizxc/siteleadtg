@@ -480,6 +480,19 @@ function bulkBarHtml(entityLabel = "записей") {
     </div>`;
 }
 
+const DELETE_NAMES = {
+  transactions: "движение",
+  invoices: "счёт",
+  clients: "клиента",
+  employees: "сотрудника",
+};
+
+function delButton(collection, id, back = "", label = "Удалить") {
+  const backAttr = back ? ` data-del-back="${esc(back)}"` : "";
+  const size = back ? "" : " btn-sm";
+  return `<button type="button" class="btn btn-ghost btn-del${size}" data-del="${esc(collection)}:${esc(id)}"${backAttr}>${esc(label)}</button>`;
+}
+
 function checkHead() {
   return `<th class="check"><input type="checkbox" id="select-all" title="Выбрать все" aria-label="Выбрать все" /></th>`;
 }
@@ -746,6 +759,7 @@ function renderEmployees() {
         </td>
         <td class="num actions-cell">
           <button type="button" class="btn btn-ghost btn-sm" data-edit-emp="${e.id}">Имя</button>
+          ${delButton("employees", e.id)}
         </td>
       </tr>`,
     )
@@ -818,7 +832,7 @@ function renderProjects() {
         <td class="num">${moneyHtml(p.netAmount ?? p.budget - (p.taxAmount || 0))}</td>
         <td class="num actions-cell">
           <button type="button" class="btn btn-ghost btn-sm" data-view-split="${p.id}">Доли</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-del-project="${p.id}">Удалить</button>
+          <button type="button" class="btn btn-ghost btn-sm btn-del" data-del-project="${p.id}">Удалить</button>
         </td>
       </tr>`;
     })
@@ -873,7 +887,7 @@ function renderTaxes() {
               ? `<button type="button" class="btn btn-sm" data-pay-tax="${t.id}">Отметить оплаченным</button>`
               : ""
           }
-          <button type="button" class="btn btn-ghost btn-sm" data-del-tax="${t.id}">Удалить</button>
+          <button type="button" class="btn btn-ghost btn-sm btn-del" data-del-tax="${t.id}">Удалить</button>
         </td>
       </tr>`,
     )
@@ -949,7 +963,7 @@ function renderSubscriptions() {
             s.active ? "Пауза" : "Вкл"
           }</button>
           <button type="button" class="btn btn-ghost btn-sm" data-edit-sub="${s.id}">Изменить</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-del-sub="${s.id}">Удалить</button>
+          <button type="button" class="btn btn-ghost btn-sm btn-del" data-del-sub="${s.id}">Удалить</button>
         </td>
       </tr>`;
     })
@@ -1010,6 +1024,7 @@ function renderClients() {
         <td>${badge(c.status, CLIENT_STATUS)}</td>
         <td class="num">${projects.length}</td>
         <td class="meta">${esc(c.email)}</td>
+        <td class="num actions-cell">${delButton("clients", c.id)}</td>
       </tr>`;
     })
     .join("");
@@ -1019,8 +1034,8 @@ function renderClients() {
     ${bulkBarHtml("клиентов")}
     <div class="card table-wrap">
       <table>
-        <thead><tr>${checkHead()}<th>Клиент</th><th>Статус</th><th class="num">Проекты</th><th>Контакт</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="5" class="meta">Нет клиентов</td></tr>`}</tbody>
+        <thead><tr>${checkHead()}<th>Клиент</th><th>Статус</th><th class="num">Проекты</th><th>Контакт</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="6" class="meta">Нет клиентов</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -1040,6 +1055,7 @@ function renderInvoices() {
         <td>${badge(status, INVOICE_STATUS)}</td>
         <td class="num">${moneyHtml(inv.amount, inv.currency)}</td>
         <td class="meta">${formatDate(inv.dueAt)}</td>
+        <td class="num actions-cell">${delButton("invoices", inv.id)}</td>
       </tr>`;
     })
     .join("");
@@ -1053,8 +1069,8 @@ function renderInvoices() {
     ${bulkBarHtml("счетов")}
     <div class="card table-wrap">
       <table>
-        <thead><tr>${checkHead()}<th>Номер</th><th>Клиент</th><th>Статус</th><th class="num">Сумма</th><th>Срок</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="6" class="meta">Нет счетов</td></tr>`}</tbody>
+        <thead><tr>${checkHead()}<th>Номер</th><th>Клиент</th><th>Статус</th><th class="num">Сумма</th><th>Срок</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="7" class="meta">Нет счетов</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -1075,6 +1091,7 @@ function renderCashflow() {
           t.currency,
           t.type === "income" ? "pos" : "neg",
         )}</td>
+        <td class="num actions-cell">${delButton("transactions", t.id)}</td>
       </tr>`;
     })
     .join("");
@@ -1088,8 +1105,8 @@ function renderCashflow() {
     ${bulkBarHtml("движений")}
     <div class="card table-wrap">
       <table>
-        <thead><tr>${checkHead()}<th>Дата</th><th>Статья</th><th>Касса</th><th class="num">Сумма</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="5" class="meta">Нет движений</td></tr>`}</tbody>
+        <thead><tr>${checkHead()}<th>Дата</th><th>Статья</th><th>Касса</th><th class="num">Сумма</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="6" class="meta">Нет движений</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -1371,7 +1388,7 @@ function renderClientDetail(id) {
 
   return `
     ${backLink("#clients", "К клиентам")}
-    ${pageHeader(c.company, `${c.name} · ${c.city || "—"}`)}
+    ${pageHeader(c.company, `${c.name} · ${c.city || "—"}`, delButton("clients", c.id, "#clients", "Удалить клиента"))}
     <div class="card"><div class="card-body">
       <div class="detail-stat"><span>Статус</span>${badge(c.status, CLIENT_STATUS)}</div>
       <div class="detail-stat"><span>Email</span><span class="meta">${esc(c.email || "—")}</span></div>
@@ -1469,6 +1486,7 @@ function renderInvoiceDetail(id) {
           ? `<button type="button" class="btn btn-ghost" data-cancel-invoice="${inv.id}">Отменить</button>`
           : ""
       }
+      ${delButton("invoices", inv.id, "#invoices", "Удалить счёт")}
     </div>`;
 }
 
@@ -1617,6 +1635,20 @@ function bindPageEvents() {
       saveState();
       toast("Проект удалён");
       render();
+    });
+  });
+
+  document.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const [collection, id] = btn.dataset.del.split(":");
+      if (!Array.isArray(state[collection])) return;
+      if (!confirm(`Удалить ${DELETE_NAMES[collection] || "запись"}? Вернуть не получится.`)) return;
+      state[collection] = state[collection].filter((item) => item.id !== id);
+      saveState();
+      toast("Удалено");
+      if (btn.dataset.delBack) location.hash = btn.dataset.delBack;
+      else render();
     });
   });
 
@@ -2316,6 +2348,15 @@ function wireUi() {
   $("#overlay").addEventListener("click", closeMobile);
   $("#open-settings").addEventListener("click", openSettings);
   $("#open-settings-mobile").addEventListener("click", openSettings);
+  document.querySelectorAll("[data-office]").forEach((link) => {
+    link.addEventListener("click", () => {
+      try {
+        sessionStorage.setItem("cursiva-page", link.dataset.office);
+      } catch {
+        /* приватный режим */
+      }
+    });
+  });
 
   $("#form-cancel").addEventListener("click", () => $("#form-modal").close());
   $("#form-submit").addEventListener("click", () => {
@@ -2430,8 +2471,8 @@ function wireTelegram() {
   tg.ready();
   tg.expand();
   try {
-    tg.setHeaderColor("#1a1a1a");
-    tg.setBackgroundColor("#232323");
+    tg.setHeaderColor("#fff7f0");
+    tg.setBackgroundColor("#fff7f0");
   } catch {
     /* старые клиенты Telegram */
   }

@@ -225,7 +225,7 @@ function finance_state()
     return array('ok' => true, 'data' => $row['data'], 'rev' => $row['rev']);
 }
 
-function finance_write(array $data, $rev, $actor_id)
+function finance_write(array $data, $rev, $actor_id, $notice = '')
 {
     if (!finance_valid($data)) {
         json_out(array('ok' => false, 'error' => 'data', 'message' => 'Данные финансов повреждены.'), 400);
@@ -235,11 +235,20 @@ function finance_write(array $data, $rev, $actor_id)
         json_out(array('ok' => false, 'error' => 'size', 'message' => 'Слишком много данных для сохранения.'), 413);
     }
 
-    finance_row();
+    $previous = finance_row();
     $statement = db()->prepare(
         'UPDATE finance_state SET data = :data, rev = rev + 1, updated_by = :actor, updated_at = :now WHERE id = 1 AND rev = :rev'
     );
     $statement->execute(array('data' => $encoded, 'actor' => (int) $actor_id, 'now' => time(), 'rev' => (int) $rev));
+    if ($statement->rowCount() > 0 && $notice !== null) {
+        $lines = $notice !== '' ? array($notice) : finance_changes($previous['data'], $data);
+        if ($lines) {
+            if (count($lines) > 12) {
+                $lines = array_merge(array_slice($lines, 0, 12), array('…и ещё ' . (count($lines) - 12)));
+            }
+            notify_team('💰 Финансы — ' . actor_name($actor_id) . ":\n" . implode("\n", $lines), $actor_id, 'finance');
+        }
+    }
     if ($statement->rowCount() < 1) {
         $current = finance_row();
         json_out(array(
@@ -263,7 +272,7 @@ function finance_save(array $input, $actor_id)
 function finance_reset_demo($actor_id)
 {
     $row = finance_row();
-    return finance_write(finance_seed(), $row['rev'], $actor_id);
+    return finance_write(finance_seed(), $row['rev'], $actor_id, 'загружены демо-данные');
 }
 
 function finance_clear($actor_id)
@@ -271,7 +280,7 @@ function finance_clear($actor_id)
     $row = finance_row();
     $data = finance_empty($row['data']);
     $data['employees'] = array();
-    return finance_write($data, $row['rev'], $actor_id);
+    return finance_write($data, $row['rev'], $actor_id, 'все данные удалены');
 }
 
 function finance_rub(array $item, array $rates)
@@ -376,6 +385,12 @@ function finance_add_money(array $input, $actor_id)
         );
         $statement->execute(array('data' => finance_encode($data), 'actor' => (int) $actor_id, 'now' => time(), 'rev' => $row['rev']));
         if ($statement->rowCount() > 0) {
+            notify_team(
+                '💰 ' . actor_name($actor_id) . ': ' . ($kind === 'income' ? 'доход ' : 'расход ') . money_format_rub($cents / 100) . ($title !== '' ? ' — ' . $title : ''),
+                $actor_id,
+                'finance',
+                isset($input['chat_id']) ? (int) $input['chat_id'] : 0
+            );
             $summary = finance_summary();
             $summary['message'] = ($kind === 'income' ? 'Доход ' : 'Расход ') . money_format_rub($cents / 100) . ' записан.';
             return $summary;

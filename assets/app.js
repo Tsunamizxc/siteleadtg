@@ -302,7 +302,25 @@
       statuses.append(button);
     });
     article.append(statuses);
+
+    const remove = el("button", "lead__delete");
+    remove.type = "button";
+    remove.textContent = "Удалить заявку";
+    remove.addEventListener("click", function () {
+      deleteLead(lead);
+    });
+    article.append(remove);
     return article;
+  }
+
+  function deleteLead(lead) {
+    if (!window.confirm("Удалить заявку № " + lead.id + (lead.name ? " (" + lead.name + ")" : "") + "? Вернуть её не получится.")) return;
+    postJson("api.php?action=lead_delete", { id: lead.id }, "Заявка удалена").then(function (body) {
+      if (!body) return;
+      if (body.counts) state.counts = Object.assign(state.counts, body.counts);
+      state.leads = state.leads.filter(function (item) { return item.id !== lead.id; });
+      paint();
+    });
   }
 
   function paint() {

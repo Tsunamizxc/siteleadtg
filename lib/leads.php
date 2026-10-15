@@ -148,24 +148,50 @@ function leads_list($status)
     );
 }
 
-function leads_set_note($id, $note)
+function lead_notice_title(array $row)
+{
+    $name = trim((string) $row['name']);
+    return 'Заявка № ' . (int) $row['id'] . ($name !== '' ? ' (' . $name . ')' : '');
+}
+
+function leads_set_note($id, $note, $actor_id = 0, $skip_chat = 0)
 {
     $current = leads_get($id);
     if (!$current) {
         json_out(array('ok' => false, 'error' => 'missing', 'message' => 'Заявка не найдена.'), 404);
     }
 
+    $note = clip_text($note, 2000);
     $statement = db()->prepare('UPDATE leads SET note = :note, updated_at = :updated_at WHERE id = :id');
     $statement->execute(array(
-        'note' => clip_text($note, 2000),
+        'note' => $note,
         'updated_at' => time(),
         'id' => (int) $id,
     ));
+    if ($note !== '' && $note !== (string) $current['note']) {
+        notify_team('🗒 ' . lead_notice_title($current) . ":\n" . $note . "\n— " . actor_name($actor_id), $actor_id, 'leads', $skip_chat);
+    }
 
     return array('ok' => true, 'lead' => present_lead(leads_get($id)));
 }
 
-function leads_set_status($id, $status)
+function leads_delete($id, $actor_id = 0)
+{
+    $current = leads_get($id);
+    if (!$current) {
+        json_out(array('ok' => false, 'error' => 'missing', 'message' => 'Заявка не найдена.'), 404);
+    }
+
+    $statement = db()->prepare('DELETE FROM leads WHERE id = :id');
+    $statement->execute(array('id' => (int) $id));
+    $deliveries = db()->prepare('DELETE FROM lead_deliveries WHERE lead_id = :id');
+    $deliveries->execute(array('id' => (int) $id));
+    notify_team('🗑 ' . lead_notice_title($current) . ' удалена — ' . actor_name($actor_id), $actor_id, 'leads');
+
+    return array('ok' => true, 'counts' => leads_counts());
+}
+
+function leads_set_status($id, $status, $actor_id = 0, $skip_chat = 0)
 {
     if (!in_array($status, lead_statuses(), true)) {
         json_out(array('ok' => false, 'error' => 'status', 'message' => 'Такого статуса нет.'), 400);
@@ -184,6 +210,14 @@ function leads_set_status($id, $status)
     ));
 
     $row = leads_get($id);
+    if ((string) $current['status'] !== $status) {
+        notify_team(
+            '📌 ' . lead_notice_title($row) . ': ' . lead_status_label($status) . ' — ' . actor_name($actor_id),
+            $actor_id,
+            'leads',
+            $skip_chat
+        );
+    }
     return array(
         'ok' => true,
         'lead' => present_lead($row),

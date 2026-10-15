@@ -227,7 +227,26 @@ function task_fields(array $input, array $row = null)
     return $fields;
 }
 
-function tasks_add(array $input, $actor_id)
+function task_lower($text)
+{
+    return function_exists('mb_strtolower') ? mb_strtolower((string) $text, 'UTF-8') : (string) $text;
+}
+
+function task_notice_title(array $task)
+{
+    return 'Задача № ' . $task['id'] . ' «' . $task['title'] . '»';
+}
+
+function task_people(array $ids)
+{
+    $names = array();
+    foreach ($ids as $id) {
+        $names[] = actor_name($id);
+    }
+    return implode(', ', $names);
+}
+
+function tasks_add(array $input, $actor_id, $skip_chat = 0)
 {
     $fields = task_fields($input);
     $now = time();
@@ -242,6 +261,21 @@ function tasks_add(array $input, $actor_id)
     $statement->execute($fields);
 
     $row = tasks_get((int) db()->lastInsertId());
+    $task = task_present($row);
+    $lines = array('📝 Новая задача № ' . $task['id'] . ': ' . $task['title'], 'Добавил(а): ' . actor_name($actor_id));
+    $extra = array($task['status_label']);
+    if ($task['priority'] !== 'normal') {
+        $extra[] = task_lower($task['priority_label']);
+    }
+    if ($task['deadline'] !== '') {
+        $extra[] = 'срок ' . $task['deadline'];
+    }
+    $lines[] = implode(' · ', $extra);
+    if ($task['assignees']) {
+        $lines[] = 'Исполнители: ' . task_people($task['assignees']);
+    }
+    notify_team(implode("\n", $lines), $actor_id, 'tasks', $skip_chat);
+
     return array(
         'ok' => true,
         'task' => task_present($row, task_comment_counts()),
@@ -249,13 +283,14 @@ function tasks_add(array $input, $actor_id)
     );
 }
 
-function tasks_update(array $input)
+function tasks_update(array $input, $actor_id = 0, $skip_chat = 0)
 {
     $row = tasks_get(isset($input['id']) ? $input['id'] : 0);
     if (!$row) {
         json_out(array('ok' => false, 'error' => 'task', 'message' => 'Задача не найдена.'), 404);
     }
 
+    $before = task_present($row);
     $fields = task_fields($input, $row);
     $fields['updated_at'] = time();
     $sets = array();
@@ -266,15 +301,47 @@ function tasks_update(array $input)
     $statement = db()->prepare('UPDATE tasks SET ' . implode(', ', $sets) . ' WHERE id = :id');
     $statement->execute($fields);
 
+    $after = task_present(tasks_get((int) $row['id']), task_comment_counts());
+    $changes = array();
+    if ($before['status'] !== $after['status']) {
+        $changes[] = 'статус: ' . $after['status_label'];
+    }
+    if ($before['priority'] !== $after['priority']) {
+        $changes[] = 'приоритет: ' . task_lower($after['priority_label']);
+    }
+    if ($before['deadline'] !== $after['deadline']) {
+        $changes[] = $after['deadline'] !== '' ? 'срок: ' . $after['deadline'] : 'срок снят';
+    }
+    $added = array_diff($after['assignees'], $before['assignees']);
+    if ($added) {
+        $changes[] = 'исполнители: + ' . task_people($added);
+    }
+    if ($before['title'] !== $after['title'] || $before['details'] !== $after['details'] || $before['group'] !== $after['group'] || $before['links'] !== $after['links']) {
+        $changes[] = 'описание изменено';
+    }
+    if ($changes) {
+        $icon = $after['status'] === 'done' && $before['status'] !== 'done' ? '✅ ' : '✏️ ';
+        notify_team(
+            $icon . task_notice_title($after) . "\n" . implode("\n", $changes) . "\n— " . actor_name($actor_id),
+            $actor_id,
+            'tasks',
+            $skip_chat
+        );
+    }
+
     return array(
         'ok' => true,
-        'task' => task_present(tasks_get((int) $row['id']), task_comment_counts()),
+        'task' => $after,
         'open' => tasks_open_count(),
     );
 }
 
-function tasks_delete($id)
+function tasks_delete($id, $actor_id = 0)
 {
+    $row = tasks_get($id);
+    if ($row) {
+        notify_team('🗑 ' . task_notice_title(task_present($row)) . ' удалена — ' . actor_name($actor_id), $actor_id, 'tasks');
+    }
     $statement = db()->prepare('DELETE FROM tasks WHERE id = :id');
     $statement->execute(array('id' => (int) $id));
     if ($statement->rowCount() < 1) {
@@ -320,9 +387,11 @@ function task_comment_add($task_id, $author_id, $body)
     if ($body === '') {
         json_out(array('ok' => false, 'error' => 'body', 'message' => 'Напишите комментарий.'), 400);
     }
-    if (!tasks_get($task_id)) {
+    $row = tasks_get($task_id);
+    if (!$row) {
         json_out(array('ok' => false, 'error' => 'task', 'message' => 'Задача не найдена.'), 404);
     }
+    notify_team('💬 ' . actor_name($author_id) . ' → ' . task_notice_title(task_present($row)) . ":\n" . $body, $author_id, 'tasks');
 
     $statement = db()->prepare(
         'INSERT INTO task_comments (task_id, author_id, body, created_at) VALUES (:task_id, :author_id, :body, :created_at)'

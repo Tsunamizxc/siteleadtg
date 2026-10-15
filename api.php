@@ -8,6 +8,7 @@ require __DIR__ . '/lib/leads.php';
 require __DIR__ . '/lib/access.php';
 require __DIR__ . '/lib/tasks.php';
 require __DIR__ . '/lib/finance.php';
+require __DIR__ . '/lib/notify.php';
 
 $action = isset($_GET['action']) ? (string) $_GET['action'] : '';
 $method = isset($_SERVER['REQUEST_METHOD']) ? (string) $_SERVER['REQUEST_METHOD'] : 'GET';
@@ -37,6 +38,17 @@ try {
         json_out(managers_remove(isset($body['telegram_id']) ? $body['telegram_id'] : 0));
     }
 
+    if ($action === 'notify_pending' && $method === 'GET') {
+        require_bot();
+        json_out(notify_pending());
+    }
+
+    if ($action === 'notify_ack' && $method === 'POST') {
+        require_bot();
+        $body = read_json();
+        json_out(notify_ack(isset($body['ids']) && is_array($body['ids']) ? $body['ids'] : array()));
+    }
+
     if ($action === 'pending' && $method === 'GET') {
         require_bot();
         json_out(leads_pending());
@@ -60,21 +72,29 @@ try {
     }
 
     if ($action === 'status' && $method === 'POST') {
-        require_manager();
+        $manager = require_manager();
         $body = read_json();
         json_out(leads_set_status(
             isset($body['id']) ? (int) $body['id'] : 0,
-            isset($body['status']) ? (string) $body['status'] : ''
+            isset($body['status']) ? (string) $body['status'] : '',
+            $manager['telegram_id']
         ));
     }
 
     if ($action === 'note' && $method === 'POST') {
-        require_manager();
+        $manager = require_manager();
         $body = read_json();
         json_out(leads_set_note(
             isset($body['id']) ? (int) $body['id'] : 0,
-            isset($body['note']) ? (string) $body['note'] : ''
+            isset($body['note']) ? (string) $body['note'] : '',
+            $manager['telegram_id']
         ));
+    }
+
+    if ($action === 'lead_delete' && $method === 'POST') {
+        $manager = require_manager();
+        $body = read_json();
+        json_out(leads_delete(isset($body['id']) ? (int) $body['id'] : 0, $manager['telegram_id']));
     }
 
     if ($action === 'bootstrap' && $method === 'POST') {
@@ -148,20 +168,24 @@ try {
     if ($action === 'status_bot' && $method === 'POST') {
         require_bot();
         $body = read_json();
-        allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
+        $actor = allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
         json_out(leads_set_status(
             isset($body['id']) ? (int) $body['id'] : 0,
-            isset($body['status']) ? (string) $body['status'] : ''
+            isset($body['status']) ? (string) $body['status'] : '',
+            $actor['telegram_id'],
+            isset($body['chat_id']) ? (int) $body['chat_id'] : 0
         ));
     }
 
     if ($action === 'note_bot' && $method === 'POST') {
         require_bot();
         $body = read_json();
-        allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
+        $actor = allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
         json_out(leads_set_note(
             isset($body['id']) ? (int) $body['id'] : 0,
-            isset($body['note']) ? (string) $body['note'] : ''
+            isset($body['note']) ? (string) $body['note'] : '',
+            $actor['telegram_id'],
+            isset($body['chat_id']) ? (int) $body['chat_id'] : 0
         ));
     }
 
@@ -203,14 +227,14 @@ try {
     }
 
     if ($action === 'task_update' && $method === 'POST') {
-        require_manager();
-        json_out(tasks_update(read_json()));
+        $manager = require_manager();
+        json_out(tasks_update(read_json(), $manager['telegram_id']));
     }
 
     if ($action === 'task_delete' && $method === 'POST') {
-        require_manager();
+        $manager = require_manager();
         $body = read_json();
-        json_out(tasks_delete(isset($body['id']) ? $body['id'] : 0));
+        json_out(tasks_delete(isset($body['id']) ? $body['id'] : 0, $manager['telegram_id']));
     }
 
     if ($action === 'tasks_bot' && $method === 'GET') {
@@ -223,14 +247,14 @@ try {
         require_bot();
         $body = read_json();
         $actor = allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
-        json_out(tasks_add($body, $actor['telegram_id']));
+        json_out(tasks_add($body, $actor['telegram_id'], isset($body['chat_id']) ? (int) $body['chat_id'] : 0));
     }
 
     if ($action === 'task_update_bot' && $method === 'POST') {
         require_bot();
         $body = read_json();
-        allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
-        json_out(tasks_update($body));
+        $actor = allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
+        json_out(tasks_update($body, $actor['telegram_id'], isset($body['chat_id']) ? (int) $body['chat_id'] : 0));
     }
 
     if ($action === 'finance_state' && $method === 'GET') {

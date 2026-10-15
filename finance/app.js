@@ -12,7 +12,13 @@ let saveChain = Promise.resolve();
 function initData() {
   if (tg && tg.initData) return tg.initData;
   const params = new URLSearchParams(location.hash.slice(1));
-  return params.get("tgWebAppData") || "";
+  if (params.get("tgWebAppData")) return params.get("tgWebAppData");
+  try {
+    const stored = JSON.parse(sessionStorage.getItem("__telegram__initParams") || "{}");
+    return stored.tgWebAppData || "";
+  } catch {
+    return "";
+  }
 }
 
 async function apiFetch(path, options = {}) {

@@ -144,6 +144,20 @@ function lead_message(array $row)
     return $text;
 }
 
+function office_link()
+{
+    static $link = null;
+    if ($link !== null) {
+        return $link;
+    }
+
+    $bot = (string) app_config('bot_username', 'cursivalead_bot');
+    $me = tg_request('getMe', array());
+    $main_app = !empty($me['ok']) && !empty($me['result']['has_main_web_app']);
+    $link = 'https://t.me/' . $bot . ($main_app ? '?startapp' : '?start=office');
+    return $link;
+}
+
 function lead_keyboard($chat_id = 0, $kind = 'private')
 {
     $group = (int) $chat_id < 0 || $kind === 'group' || $kind === 'supergroup';
@@ -161,7 +175,7 @@ function lead_keyboard($chat_id = 0, $kind = 'private')
                 array(
                     array(
                         'text' => 'Открыть офис',
-                        'url' => 'https://t.me/' . (string) app_config('bot_username', 'cursivalead_bot') . '?startapp',
+                        'url' => office_link(),
                     ),
                 ),
             ),

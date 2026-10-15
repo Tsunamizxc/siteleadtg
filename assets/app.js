@@ -66,6 +66,8 @@
     return params.get("tgWebAppData") || "";
   }
 
+  window.cursivaInitData = initData;
+
   async function api(path, options) {
     const headers = Object.assign(
       { "X-Telegram-Init-Data": initData() },
@@ -142,7 +144,7 @@
     if (!financeBox) {
       financeBox = el("div", "finance-box");
       const frame = el("iframe", "finance-frame");
-      frame.src = "finance/?embed=1";
+      frame.src = "finance/?embed=1&v=5";
       frame.title = "Финансы";
       financeBox.append(frame);
       document.body.append(financeBox);

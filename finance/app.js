@@ -25,6 +25,8 @@ function initData() {
   if (tg && tg.initData) return tg.initData;
   if (EMBED) {
     try {
+      const fromOffice = typeof window.parent.cursivaInitData === "function" ? window.parent.cursivaInitData() : "";
+      if (fromOffice) return fromOffice;
       const office = window.parent.Telegram && window.parent.Telegram.WebApp;
       if (office && office.initData) return office.initData;
     } catch {
@@ -2552,11 +2554,12 @@ main().catch((err) => {
   console.error(err);
   const sk = document.querySelector("#skeleton");
   if (sk) {
-    const denied = err.status === 401 || err.status === 403;
+    const messages = {
+      401: "Telegram не передал вход. Закройте офис и откройте его заново кнопкой в боте.",
+      403: "Нет доступа. Финансы открыты только команде Cursiva — попросите владельца добавить вас через /allow.",
+    };
     sk.innerHTML = `<p class="empty">${
-      denied
-        ? "Нет доступа. Финансы открыты только команде Cursiva — откройте офис кнопкой в боте."
-        : "Не удалось загрузить финансы. Проверьте связь и откройте ещё раз."
+      messages[err.status] || "Не удалось загрузить финансы. Проверьте связь и откройте ещё раз."
     }</p><p><button type="button" class="btn btn-ghost" onclick="location.reload()">Обновить</button></p>`;
   }
 });

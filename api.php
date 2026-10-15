@@ -178,8 +178,23 @@ try {
     }
 
     if ($action === 'tasks' && $method === 'GET') {
+        $manager = require_manager();
+        json_out(tasks_list($manager['telegram_id']));
+    }
+
+    if ($action === 'task_comments' && $method === 'GET') {
         require_manager();
-        json_out(tasks_list());
+        json_out(task_comments_list(isset($_GET['id']) ? (int) $_GET['id'] : 0));
+    }
+
+    if ($action === 'task_comment' && $method === 'POST') {
+        $manager = require_manager();
+        $body = read_json();
+        json_out(task_comment_add(
+            isset($body['id']) ? (int) $body['id'] : 0,
+            $manager['telegram_id'],
+            isset($body['body']) ? $body['body'] : ''
+        ));
     }
 
     if ($action === 'task' && $method === 'POST') {
@@ -218,51 +233,42 @@ try {
         json_out(tasks_update($body));
     }
 
-    if ($action === 'finance' && $method === 'GET') {
+    if ($action === 'finance_state' && $method === 'GET') {
         require_manager();
-        json_out(finance_snapshot());
+        json_out(finance_state());
     }
 
-    if ($action === 'money' && $method === 'POST') {
+    if ($action === 'finance_seed' && $method === 'GET') {
+        require_manager();
+        json_out(array('ok' => true, 'data' => finance_seed()));
+    }
+
+    if ($action === 'finance_save' && $method === 'POST') {
         $manager = require_manager();
-        json_out(money_add(read_json(), $manager['telegram_id']));
+        json_out(finance_save(read_json(), $manager['telegram_id']));
     }
 
-    if ($action === 'money_delete' && $method === 'POST') {
-        require_manager();
-        $body = read_json();
-        json_out(money_delete(isset($body['id']) ? $body['id'] : 0));
-    }
-
-    if ($action === 'project' && $method === 'POST') {
+    if ($action === 'finance_reset' && $method === 'POST') {
         $manager = require_manager();
-        json_out(project_save(read_json(), $manager['telegram_id']));
+        json_out(finance_reset_demo($manager['telegram_id']));
     }
 
-    if ($action === 'project_delete' && $method === 'POST') {
-        require_manager();
-        $body = read_json();
-        json_out(project_delete(isset($body['id']) ? $body['id'] : 0));
+    if ($action === 'finance_clear' && $method === 'POST') {
+        $manager = require_manager();
+        json_out(finance_clear($manager['telegram_id']));
     }
 
     if ($action === 'finance_bot' && $method === 'GET') {
         require_bot();
         allowed_require_actor(isset($_GET['actor_id']) ? $_GET['actor_id'] : 0);
-        json_out(finance_snapshot());
+        json_out(finance_summary());
     }
 
     if ($action === 'money_bot' && $method === 'POST') {
         require_bot();
         $body = read_json();
         $actor = allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
-        json_out(money_add($body, $actor['telegram_id']));
-    }
-
-    if ($action === 'project_bot' && $method === 'POST') {
-        require_bot();
-        $body = read_json();
-        $actor = allowed_require_actor(isset($body['actor_id']) ? $body['actor_id'] : 0);
-        json_out(project_save($body, $actor['telegram_id']));
+        json_out(finance_add_money($body, $actor['telegram_id']));
     }
 
     json_out(array('ok' => false, 'error' => 'unknown'), 404);

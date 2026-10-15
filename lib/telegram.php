@@ -155,13 +155,13 @@ function lead_keyboard($chat_id = 0, $kind = 'private')
                     array('text' => 'Задачи', 'callback_data' => 'tasks'),
                 ),
                 array(
-                    array('text' => 'Деньги', 'callback_data' => 'money'),
+                    array('text' => 'Финансы', 'callback_data' => 'money'),
                     array('text' => 'Помощь', 'callback_data' => 'help'),
                 ),
                 array(
                     array(
                         'text' => 'Открыть офис',
-                        'url' => 'https://t.me/cursivalead_bot?start=office',
+                        'url' => 'https://t.me/' . (string) app_config('bot_username', 'cursivalead_bot') . '?startapp',
                     ),
                 ),
             ),

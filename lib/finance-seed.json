@@ -1,0 +1,529 @@
+{
+  "rates": { "RUB": 1, "USD": 81.5, "EUR": 95.2 },
+  "selfEmployedTaxPercent": 6,
+  "employees": [
+    {
+      "id": "em-manager",
+      "name": "Менеджер",
+      "role": "Менеджер проекта",
+      "percent": 25,
+      "status": "active"
+    },
+    {
+      "id": "em-pm",
+      "name": "Проджект",
+      "role": "Проджект-менеджер",
+      "percent": 25,
+      "status": "active"
+    },
+    {
+      "id": "em-yasik",
+      "name": "Ясик",
+      "role": "Дизайн и вёрстка",
+      "percent": 15,
+      "status": "active"
+    },
+    {
+      "id": "em-sema",
+      "name": "Сёма",
+      "role": "Разработка",
+      "percent": 35,
+      "status": "active"
+    }
+  ],
+  "clients": [
+    {
+      "id": "cl-zerno",
+      "name": "Анна Соколова",
+      "company": "Пекарня «Зерно»",
+      "email": "anna@zerno.cafe",
+      "phone": "+7 916 220 14 08",
+      "city": "Москва",
+      "status": "active",
+      "createdAt": "2026-03-12"
+    },
+    {
+      "id": "cl-klyk",
+      "name": "Дмитрий Орлов",
+      "company": "Стоматология «Белый клык»",
+      "email": "d.orlov@belyklyk.ru",
+      "phone": "+7 903 411 77 20",
+      "city": "Казань",
+      "status": "active",
+      "createdAt": "2026-04-02"
+    },
+    {
+      "id": "cl-motor",
+      "name": "Игорь Савельев",
+      "company": "Автосервис «Мотор»",
+      "email": "igor@motor-auto.ru",
+      "phone": "+7 921 300 18 44",
+      "city": "Санкт-Петербург",
+      "status": "active",
+      "createdAt": "2026-01-20"
+    },
+    {
+      "id": "cl-fit",
+      "name": "Елена Кравец",
+      "company": "Студия Stretch Lab",
+      "email": "elena@stretchlab.ru",
+      "phone": "+7 905 118 90 22",
+      "city": "Краснодар",
+      "status": "active",
+      "createdAt": "2026-02-08"
+    },
+    {
+      "id": "cl-lex",
+      "name": "Павел Громов",
+      "company": "Юрбюро «Лекс»",
+      "email": "p.gromov@lex-bureau.ru",
+      "phone": "+7 495 120 33 91",
+      "city": "Москва",
+      "status": "active",
+      "createdAt": "2025-11-14"
+    }
+  ],
+  "projects": [
+    {
+      "id": "pr-zerno",
+      "clientId": "cl-zerno",
+      "name": "Визитка «Зерно»",
+      "type": "card",
+      "status": "done",
+      "budget": 20000,
+      "currency": "RUB",
+      "taxPercent": 6,
+      "taxAmount": 1200,
+      "netAmount": 18800,
+      "shares": [
+        { "employeeId": "em-manager", "percent": 25, "amount": 4700 },
+        { "employeeId": "em-pm", "percent": 25, "amount": 4700 },
+        { "employeeId": "em-yasik", "percent": 15, "amount": 2820 },
+        { "employeeId": "em-sema", "percent": 35, "amount": 6580 }
+      ],
+      "startDate": "2026-03-18",
+      "dueDate": "2026-03-25",
+      "notes": "Пакет «Визитка»",
+      "createdAt": "2026-03-12"
+    },
+    {
+      "id": "pr-klyk",
+      "clientId": "cl-klyk",
+      "name": "Каталог «Белый клык»",
+      "type": "catalog",
+      "status": "in_progress",
+      "budget": 60000,
+      "currency": "RUB",
+      "taxPercent": 6,
+      "taxAmount": 3600,
+      "netAmount": 56400,
+      "shares": [
+        { "employeeId": "em-manager", "percent": 25, "amount": 14100 },
+        { "employeeId": "em-pm", "percent": 25, "amount": 14100 },
+        { "employeeId": "em-yasik", "percent": 15, "amount": 8460 },
+        { "employeeId": "em-sema", "percent": 35, "amount": 19740 }
+      ],
+      "startDate": "2026-07-14",
+      "dueDate": "2026-09-25",
+      "notes": "Пакет «Каталог»",
+      "createdAt": "2026-07-08"
+    },
+    {
+      "id": "pr-motor",
+      "clientId": "cl-motor",
+      "name": "Лендинг «Мотор»",
+      "type": "landing",
+      "status": "review",
+      "budget": 30000,
+      "currency": "RUB",
+      "taxPercent": 6,
+      "taxAmount": 1800,
+      "netAmount": 28200,
+      "shares": [
+        { "employeeId": "em-manager", "percent": 25, "amount": 7050 },
+        { "employeeId": "em-pm", "percent": 25, "amount": 7050 },
+        { "employeeId": "em-yasik", "percent": 15, "amount": 4230 },
+        { "employeeId": "em-sema", "percent": 35, "amount": 9870 }
+      ],
+      "startDate": "2026-07-28",
+      "dueDate": "2026-09-10",
+      "notes": "",
+      "createdAt": "2026-07-22"
+    },
+    {
+      "id": "pr-fit",
+      "clientId": "cl-fit",
+      "name": "Каталог Stretch Lab",
+      "type": "catalog",
+      "status": "in_progress",
+      "budget": 100000,
+      "currency": "RUB",
+      "taxPercent": 6,
+      "taxAmount": 6000,
+      "netAmount": 94000,
+      "shares": [
+        { "employeeId": "em-manager", "percent": 25, "amount": 23500 },
+        { "employeeId": "em-pm", "percent": 25, "amount": 23500 },
+        { "employeeId": "em-yasik", "percent": 15, "amount": 14100 },
+        { "employeeId": "em-sema", "percent": 35, "amount": 32900 }
+      ],
+      "startDate": "2026-08-11",
+      "dueDate": "2026-10-20",
+      "notes": "Пример: 100 000 ₽ с налогом и долями",
+      "createdAt": "2026-08-04"
+    },
+    {
+      "id": "pr-lex",
+      "clientId": "cl-lex",
+      "name": "Визитка «Лекс»",
+      "type": "card",
+      "status": "done",
+      "budget": 20000,
+      "currency": "RUB",
+      "taxPercent": 6,
+      "taxAmount": 1200,
+      "netAmount": 18800,
+      "shares": [
+        { "employeeId": "em-manager", "percent": 25, "amount": 4700 },
+        { "employeeId": "em-pm", "percent": 25, "amount": 4700 },
+        { "employeeId": "em-yasik", "percent": 15, "amount": 2820 },
+        { "employeeId": "em-sema", "percent": 35, "amount": 6580 }
+      ],
+      "startDate": "2026-01-13",
+      "dueDate": "2026-01-20",
+      "notes": "",
+      "createdAt": "2025-11-14"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "inv-002",
+      "number": "CV-2026-088",
+      "clientId": "cl-klyk",
+      "projectId": "pr-klyk",
+      "stage": "advance",
+      "amount": 30000,
+      "currency": "RUB",
+      "status": "paid",
+      "issuedAt": "2026-07-14",
+      "dueAt": "2026-07-21",
+      "paidAt": "2026-07-18"
+    },
+    {
+      "id": "inv-003",
+      "number": "CV-2026-104",
+      "clientId": "cl-klyk",
+      "projectId": "pr-klyk",
+      "stage": "final",
+      "amount": 30000,
+      "currency": "RUB",
+      "status": "sent",
+      "issuedAt": "2026-09-02",
+      "dueAt": "2026-09-16",
+      "paidAt": null
+    },
+    {
+      "id": "inv-004",
+      "number": "CV-2026-097",
+      "clientId": "cl-motor",
+      "projectId": "pr-motor",
+      "stage": "advance",
+      "amount": 15000,
+      "currency": "RUB",
+      "status": "paid",
+      "issuedAt": "2026-07-28",
+      "dueAt": "2026-08-04",
+      "paidAt": "2026-08-01"
+    },
+    {
+      "id": "inv-005",
+      "number": "CV-2026-109",
+      "clientId": "cl-motor",
+      "projectId": "pr-motor",
+      "stage": "final",
+      "amount": 15000,
+      "currency": "RUB",
+      "status": "sent",
+      "issuedAt": "2026-09-04",
+      "dueAt": "2026-09-12",
+      "paidAt": null
+    },
+    {
+      "id": "inv-007",
+      "number": "CV-2026-110",
+      "clientId": "cl-motor",
+      "projectId": "pr-motor",
+      "stage": "retainer",
+      "amount": 18000,
+      "currency": "RUB",
+      "status": "overdue",
+      "issuedAt": "2026-09-01",
+      "dueAt": "2026-09-05",
+      "paidAt": null
+    },
+    {
+      "id": "inv-008",
+      "number": "CV-2026-103",
+      "clientId": "cl-fit",
+      "projectId": "pr-fit",
+      "stage": "advance",
+      "amount": 50000,
+      "currency": "RUB",
+      "status": "paid",
+      "issuedAt": "2026-08-11",
+      "dueAt": "2026-08-18",
+      "paidAt": "2026-08-15"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "acc-ip",
+      "name": "Самозанятый / карта",
+      "type": "card",
+      "currency": "RUB",
+      "openingBalance": 184000
+    },
+    {
+      "id": "acc-cash",
+      "name": "Касса офиса",
+      "type": "cash",
+      "currency": "RUB",
+      "openingBalance": 18500
+    },
+    {
+      "id": "acc-sber",
+      "name": "Карта Сбер",
+      "type": "card",
+      "currency": "RUB",
+      "openingBalance": 24100
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-001",
+      "type": "income",
+      "accountId": "acc-ip",
+      "projectId": "pr-klyk",
+      "category": "Разработка",
+      "amount": 30000,
+      "currency": "RUB",
+      "date": "2026-07-18",
+      "counterparty": "Стоматология «Белый клык»",
+      "description": "Аванс по каталогу"
+    },
+    {
+      "id": "tx-002",
+      "type": "income",
+      "accountId": "acc-ip",
+      "projectId": "pr-motor",
+      "category": "Разработка",
+      "amount": 15000,
+      "currency": "RUB",
+      "date": "2026-08-01",
+      "counterparty": "Автосервис «Мотор»",
+      "description": "Аванс лендинга"
+    },
+    {
+      "id": "tx-005",
+      "type": "income",
+      "accountId": "acc-ip",
+      "projectId": "pr-fit",
+      "category": "Разработка",
+      "amount": 50000,
+      "currency": "RUB",
+      "date": "2026-08-15",
+      "counterparty": "Студия Stretch Lab",
+      "description": "Аванс 50%"
+    },
+    {
+      "id": "tx-tax-08",
+      "type": "expense",
+      "accountId": "acc-ip",
+      "projectId": null,
+      "category": "Налоги",
+      "amount": 7800,
+      "currency": "RUB",
+      "date": "2026-08-28",
+      "counterparty": "ФНС / НПД",
+      "description": "НПД за август"
+    },
+    {
+      "id": "tx-figma-08",
+      "type": "expense",
+      "accountId": "acc-sber",
+      "projectId": null,
+      "category": "Софт и подписки",
+      "amount": 3200,
+      "currency": "RUB",
+      "date": "2026-08-03",
+      "counterparty": "Figma",
+      "description": "Figma Professional"
+    },
+    {
+      "id": "tx-host-08",
+      "type": "expense",
+      "accountId": "acc-sber",
+      "projectId": null,
+      "category": "Хостинг и домены",
+      "amount": 4800,
+      "currency": "RUB",
+      "date": "2026-08-05",
+      "counterparty": "Timeweb",
+      "description": "Хостинг студии"
+    },
+    {
+      "id": "tx-office-08",
+      "type": "expense",
+      "accountId": "acc-cash",
+      "projectId": null,
+      "category": "Офис",
+      "amount": 35000,
+      "currency": "RUB",
+      "date": "2026-08-04",
+      "counterparty": "Арендодатель",
+      "description": "Аренда август"
+    },
+    {
+      "id": "tx-figma-09",
+      "type": "expense",
+      "accountId": "acc-sber",
+      "projectId": null,
+      "category": "Софт и подписки",
+      "amount": 3200,
+      "currency": "RUB",
+      "date": "2026-09-02",
+      "counterparty": "Figma",
+      "description": "Figma Professional"
+    },
+    {
+      "id": "tx-office-09",
+      "type": "expense",
+      "accountId": "acc-cash",
+      "projectId": null,
+      "category": "Офис",
+      "amount": 35000,
+      "currency": "RUB",
+      "date": "2026-09-03",
+      "counterparty": "Арендодатель",
+      "description": "Аренда сентябрь"
+    },
+    {
+      "id": "tx-direct-09",
+      "type": "expense",
+      "accountId": "acc-sber",
+      "projectId": null,
+      "category": "Реклама",
+      "amount": 9800,
+      "currency": "RUB",
+      "date": "2026-09-04",
+      "counterparty": "Яндекс Директ",
+      "description": "Кампания лендингов"
+    }
+  ],
+  "subscriptions": [
+    {
+      "id": "sub-figma",
+      "name": "Figma Professional",
+      "vendor": "Figma",
+      "amount": 3200,
+      "currency": "RUB",
+      "period": "month",
+      "nextPayment": "2026-10-03",
+      "category": "Дизайн",
+      "active": true,
+      "notes": "Команда студии"
+    },
+    {
+      "id": "sub-timeweb",
+      "name": "Хостинг Timeweb",
+      "vendor": "Timeweb",
+      "amount": 4800,
+      "currency": "RUB",
+      "period": "month",
+      "nextPayment": "2026-10-05",
+      "category": "Инфра",
+      "active": true,
+      "notes": "Студия + клиентские"
+    },
+    {
+      "id": "sub-domain",
+      "name": "Домен cursiva.ru",
+      "vendor": "REG.RU",
+      "amount": 990,
+      "currency": "RUB",
+      "period": "year",
+      "nextPayment": "2027-02-12",
+      "category": "Инфра",
+      "active": true,
+      "notes": ""
+    },
+    {
+      "id": "sub-metrica",
+      "name": "Яндекс 360 / почта",
+      "vendor": "Яндекс",
+      "amount": 2490,
+      "currency": "RUB",
+      "period": "month",
+      "nextPayment": "2026-10-01",
+      "category": "Связь",
+      "active": true,
+      "notes": ""
+    },
+    {
+      "id": "sub-chatgpt",
+      "name": "ChatGPT Team",
+      "vendor": "OpenAI",
+      "amount": 30,
+      "currency": "USD",
+      "period": "month",
+      "nextPayment": "2026-10-08",
+      "category": "ИИ",
+      "active": true,
+      "notes": ""
+    },
+    {
+      "id": "sub-adobe",
+      "name": "Adobe Creative Cloud",
+      "vendor": "Adobe",
+      "amount": 45990,
+      "currency": "RUB",
+      "period": "year",
+      "nextPayment": "2027-01-15",
+      "category": "Дизайн",
+      "active": false,
+      "notes": "Пауза"
+    }
+  ],
+  "taxPayments": [
+    {
+      "id": "tax-2026-07",
+      "period": "2026-07",
+      "baseAmount": 45000,
+      "taxPercent": 6,
+      "taxAmount": 2700,
+      "status": "paid",
+      "paidAt": "2026-08-10",
+      "note": "НПД июль"
+    },
+    {
+      "id": "tax-2026-08",
+      "period": "2026-08",
+      "baseAmount": 130000,
+      "taxPercent": 6,
+      "taxAmount": 7800,
+      "status": "paid",
+      "paidAt": "2026-08-28",
+      "note": "НПД август"
+    },
+    {
+      "id": "tax-2026-09",
+      "period": "2026-09",
+      "baseAmount": 0,
+      "taxPercent": 6,
+      "taxAmount": 0,
+      "status": "planned",
+      "paidAt": null,
+      "note": "Пересчитается по оплатам проектов"
+    }
+  ]
+}

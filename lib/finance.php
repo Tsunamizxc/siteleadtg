@@ -25,14 +25,13 @@ function money_cents($value)
     return $cents;
 }
 
-function money_format_cents($cents)
+function money_format_rub($amount)
 {
-    $cents = (int) $cents;
+    $cents = (int) round(((float) $amount) * 100);
     $sign = $cents < 0 ? '−' : '';
     $abs = abs($cents);
-    $rubles = (int) floor($abs / 100);
+    $grouped = number_format((int) floor($abs / 100), 0, '', ' ');
     $kopecks = $abs % 100;
-    $grouped = number_format($rubles, 0, '', ' ');
     if ($kopecks === 0) {
         return $sign . $grouped . ' ₽';
     }
@@ -40,111 +39,290 @@ function money_format_cents($cents)
     return $sign . $grouped . ',' . str_pad((string) $kopecks, 2, '0', STR_PAD_LEFT) . ' ₽';
 }
 
-function project_statuses()
+function finance_seed()
 {
-    return array('progress', 'paused', 'done');
-}
-
-function project_status_label($status)
-{
-    $labels = array(
-        'progress' => 'в работе',
-        'paused' => 'пауза',
-        'done' => 'завершён',
-    );
-
-    return isset($labels[$status]) ? $labels[$status] : $status;
-}
-
-function project_present(array $row)
-{
-    return array(
-        'id' => (int) $row['id'],
-        'name' => (string) $row['name'],
-        'client' => (string) $row['client'],
-        'amount_cents' => (int) $row['amount_cents'],
-        'amount_label' => money_format_cents((int) $row['amount_cents']),
-        'status' => (string) $row['status'],
-        'status_label' => project_status_label($row['status']),
-    );
-}
-
-function money_present(array $row)
-{
-    $happened = (string) $row['happened_on'];
-    $stamp = strtotime($happened . ' 12:00:00');
-
-    return array(
-        'id' => (int) $row['id'],
-        'kind' => (string) $row['kind'],
-        'amount_cents' => (int) $row['amount_cents'],
-        'amount_label' => money_format_cents((int) $row['amount_cents']),
-        'title' => (string) $row['title'],
-        'project_id' => $row['project_id'] !== null ? (int) $row['project_id'] : 0,
-        'project_name' => isset($row['project_name']) ? (string) $row['project_name'] : '',
-        'happened_on' => $happened,
-        'happened_label' => $stamp ? format_moment($stamp) : $happened,
-        'note' => (string) $row['note'],
-    );
-}
-
-function finance_totals($from_date)
-{
-    $sql = 'SELECT kind, COALESCE(SUM(amount_cents), 0) AS total FROM money_entries';
-    $params = array();
-    if ($from_date !== '') {
-        $sql .= ' WHERE happened_on >= :from_date';
-        $params['from_date'] = $from_date;
-    }
-    $sql .= ' GROUP BY kind';
-    $statement = db()->prepare($sql);
-    $statement->execute($params);
-    $income = 0;
-    $expense = 0;
-    foreach ($statement->fetchAll() as $row) {
-        if ($row['kind'] === 'income') {
-            $income = (int) $row['total'];
-        }
-        if ($row['kind'] === 'expense') {
-            $expense = (int) $row['total'];
-        }
+    $raw = @file_get_contents(__DIR__ . '/finance-seed.json');
+    $data = is_string($raw) ? json_decode($raw, true) : null;
+    if (is_array($data)) {
+        return $data;
     }
 
     return array(
-        'income' => $income,
-        'expense' => $expense,
-        'profit' => $income - $expense,
-        'income_label' => money_format_cents($income),
-        'expense_label' => money_format_cents($expense),
-        'profit_label' => money_format_cents($income - $expense),
+        'rates' => array('RUB' => 1, 'USD' => 81.5, 'EUR' => 95.2),
+        'selfEmployedTaxPercent' => 6,
+        'employees' => array(),
+        'clients' => array(),
+        'projects' => array(),
+        'invoices' => array(),
+        'accounts' => array(),
+        'transactions' => array(),
+        'subscriptions' => array(),
+        'taxPayments' => array(),
     );
 }
 
-function finance_snapshot()
+function finance_empty(array $base)
 {
-    $month_start = date('Y-m-01');
-    $projects = array();
-    $progress_cents = 0;
+    $accounts = array();
+    foreach (isset($base['accounts']) && is_array($base['accounts']) ? $base['accounts'] : array() as $account) {
+        $account['openingBalance'] = 0;
+        $accounts[] = $account;
+    }
+
+    return array(
+        'rates' => isset($base['rates']) ? $base['rates'] : array('RUB' => 1, 'USD' => 81.5, 'EUR' => 95.2),
+        'selfEmployedTaxPercent' => isset($base['selfEmployedTaxPercent']) ? $base['selfEmployedTaxPercent'] : 6,
+        'employees' => isset($base['employees']) && is_array($base['employees']) ? $base['employees'] : array(),
+        'clients' => array(),
+        'projects' => array(),
+        'invoices' => array(),
+        'accounts' => $accounts,
+        'transactions' => array(),
+        'subscriptions' => array(),
+        'taxPayments' => array(),
+    );
+}
+
+function finance_split($budget, $tax_percent, array $employees)
+{
+    $gross = (float) $budget;
+    $tax_amount = round($gross * (float) $tax_percent / 100, 2);
+    $net = round($gross - $tax_amount, 2);
+    $active = array_values(array_filter($employees, function ($employee) {
+        return !isset($employee['status']) || $employee['status'] !== 'inactive';
+    }));
+    $shares = array();
+    $allocated = 0.0;
+    foreach ($active as $index => $employee) {
+        $percent = isset($employee['percent']) ? (float) $employee['percent'] : 0;
+        if ($index === count($active) - 1) {
+            $amount = round($net - $allocated, 2);
+        } else {
+            $amount = round($net * $percent / 100, 2);
+            $allocated += $amount;
+        }
+        $shares[] = array('employeeId' => (string) $employee['id'], 'percent' => $percent, 'amount' => $amount);
+    }
+
+    return array('taxPercent' => (float) $tax_percent, 'taxAmount' => $tax_amount, 'netAmount' => $net, 'shares' => $shares);
+}
+
+function finance_project(array $data, $id, $name, $client_id, $status, $budget, $created)
+{
+    $split = finance_split($budget, $data['selfEmployedTaxPercent'], $data['employees']);
+    return array(
+        'id' => $id,
+        'clientId' => $client_id,
+        'name' => $name,
+        'type' => 'other',
+        'status' => $status,
+        'budget' => (float) $budget,
+        'currency' => 'RUB',
+        'taxPercent' => $split['taxPercent'],
+        'taxAmount' => $split['taxAmount'],
+        'netAmount' => $split['netAmount'],
+        'shares' => $split['shares'],
+        'startDate' => $created,
+        'dueDate' => $created,
+        'notes' => '',
+        'createdAt' => $created,
+    );
+}
+
+function finance_legacy(array $data)
+{
+    $account = isset($data['accounts'][0]['id']) ? (string) $data['accounts'][0]['id'] : '';
+    $statuses = array('progress' => 'in_progress', 'paused' => 'paused', 'done' => 'done');
+    $clients = array();
+
+    foreach (db()->query('SELECT * FROM work_projects ORDER BY id ASC')->fetchAll() as $row) {
+        $client_id = '';
+        $client = trim((string) $row['client']);
+        if ($client !== '') {
+            if (!isset($clients[$client])) {
+                $clients[$client] = 'cl-old-' . (count($clients) + 1);
+                $data['clients'][] = array(
+                    'id' => $clients[$client],
+                    'name' => $client,
+                    'company' => $client,
+                    'email' => '',
+                    'phone' => '',
+                    'city' => '',
+                    'status' => 'active',
+                    'createdAt' => date('Y-m-d', (int) $row['created_at']),
+                );
+            }
+            $client_id = $clients[$client];
+        }
+        $status = isset($statuses[$row['status']]) ? $statuses[$row['status']] : 'in_progress';
+        $data['projects'][] = finance_project(
+            $data,
+            'pr-old-' . (int) $row['id'],
+            (string) $row['name'],
+            $client_id,
+            $status,
+            ((int) $row['amount_cents']) / 100,
+            date('Y-m-d', (int) $row['created_at'])
+        );
+    }
+
+    foreach (db()->query('SELECT * FROM money_entries ORDER BY happened_on ASC, id ASC')->fetchAll() as $row) {
+        $note = trim((string) $row['note']);
+        $data['transactions'][] = array(
+            'id' => 'tx-old-' . (int) $row['id'],
+            'type' => (string) $row['kind'] === 'expense' ? 'expense' : 'income',
+            'accountId' => $account,
+            'projectId' => $row['project_id'] !== null ? 'pr-old-' . (int) $row['project_id'] : '',
+            'category' => (string) $row['kind'] === 'expense' ? 'Расход' : 'Оплата',
+            'amount' => ((int) $row['amount_cents']) / 100,
+            'currency' => 'RUB',
+            'date' => (string) $row['happened_on'],
+            'counterparty' => '',
+            'description' => trim((string) $row['title'] . ($note !== '' ? ' — ' . $note : '')),
+        );
+    }
+
+    return $data;
+}
+
+function finance_row()
+{
+    $row = db()->query('SELECT data, rev FROM finance_state WHERE id = 1')->fetch();
+    if ($row) {
+        $data = json_decode((string) $row['data'], true);
+        return array('data' => is_array($data) ? $data : finance_empty(finance_seed()), 'rev' => (int) $row['rev']);
+    }
+
+    $data = finance_legacy(finance_empty(finance_seed()));
+    try {
+        $statement = db()->prepare('INSERT INTO finance_state (id, data, rev, updated_by, updated_at) VALUES (1, :data, 1, 0, :now)');
+        $statement->execute(array('data' => finance_encode($data), 'now' => time()));
+    } catch (Exception $error) {
+        return finance_row();
+    }
+
+    return array('data' => $data, 'rev' => 1);
+}
+
+function finance_encode(array $data)
+{
+    return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+function finance_valid(array $data)
+{
+    foreach (array('clients', 'projects', 'employees') as $key) {
+        if (!isset($data[$key]) || !is_array($data[$key])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function finance_state()
+{
+    $row = finance_row();
+    return array('ok' => true, 'data' => $row['data'], 'rev' => $row['rev']);
+}
+
+function finance_write(array $data, $rev, $actor_id)
+{
+    if (!finance_valid($data)) {
+        json_out(array('ok' => false, 'error' => 'data', 'message' => 'Данные финансов повреждены.'), 400);
+    }
+    $encoded = finance_encode($data);
+    if (strlen($encoded) > 5000000) {
+        json_out(array('ok' => false, 'error' => 'size', 'message' => 'Слишком много данных для сохранения.'), 413);
+    }
+
+    finance_row();
+    $statement = db()->prepare(
+        'UPDATE finance_state SET data = :data, rev = rev + 1, updated_by = :actor, updated_at = :now WHERE id = 1 AND rev = :rev'
+    );
+    $statement->execute(array('data' => $encoded, 'actor' => (int) $actor_id, 'now' => time(), 'rev' => (int) $rev));
+    if ($statement->rowCount() < 1) {
+        $current = finance_row();
+        json_out(array(
+            'ok' => false,
+            'error' => 'conflict',
+            'message' => 'Коллега только что изменил финансы. Показываю свежие данные — повторите действие.',
+            'data' => $current['data'],
+            'rev' => $current['rev'],
+        ), 409);
+    }
+
+    return array('ok' => true, 'data' => $data, 'rev' => (int) $rev + 1);
+}
+
+function finance_save(array $input, $actor_id)
+{
+    $data = isset($input['data']) && is_array($input['data']) ? $input['data'] : array();
+    return finance_write($data, isset($input['rev']) ? $input['rev'] : 0, $actor_id);
+}
+
+function finance_reset_demo($actor_id)
+{
+    $row = finance_row();
+    return finance_write(finance_seed(), $row['rev'], $actor_id);
+}
+
+function finance_clear($actor_id)
+{
+    $row = finance_row();
+    $data = finance_empty($row['data']);
+    $data['employees'] = array();
+    return finance_write($data, $row['rev'], $actor_id);
+}
+
+function finance_rub(array $item, array $rates)
+{
+    $currency = isset($item['currency']) ? (string) $item['currency'] : 'RUB';
+    $rate = isset($rates[$currency]) ? (float) $rates[$currency] : 1;
+    return (float) (isset($item['amount']) ? $item['amount'] : 0) * $rate;
+}
+
+function finance_summary()
+{
+    $row = finance_row();
+    $data = $row['data'];
+    $rates = isset($data['rates']) && is_array($data['rates']) ? $data['rates'] : array('RUB' => 1);
+    $from = date('Y-m-01');
+    $to = date('Y-m-t');
+    $month = array('income' => 0.0, 'expense' => 0.0);
+    $all = array('income' => 0.0, 'expense' => 0.0);
+    $balances = array();
+
+    foreach (isset($data['transactions']) ? $data['transactions'] : array() as $tx) {
+        $type = isset($tx['type']) && $tx['type'] === 'expense' ? 'expense' : 'income';
+        $rub = finance_rub($tx, $rates);
+        $all[$type] += $rub;
+        $date = isset($tx['date']) ? (string) $tx['date'] : '';
+        if ($date >= $from && $date <= $to) {
+            $month[$type] += $rub;
+        }
+        $account = isset($tx['accountId']) ? (string) $tx['accountId'] : '';
+        $balances[$account] = (isset($balances[$account]) ? $balances[$account] : 0) + ($type === 'income' ? $rub : -$rub);
+    }
+
+    $cash = 0.0;
+    foreach (isset($data['accounts']) ? $data['accounts'] : array() as $account) {
+        $opening = array('amount' => isset($account['openingBalance']) ? $account['openingBalance'] : 0, 'currency' => isset($account['currency']) ? $account['currency'] : 'RUB');
+        $cash += finance_rub($opening, $rates);
+        $id = isset($account['id']) ? (string) $account['id'] : '';
+        $cash += isset($balances[$id]) ? $balances[$id] : 0;
+    }
+
     $progress_count = 0;
-    foreach (db()->query('SELECT * FROM work_projects ORDER BY updated_at DESC, id DESC')->fetchAll() as $row) {
-        $project = project_present($row);
-        if ($project['status'] === 'progress') {
+    $progress_sum = 0.0;
+    foreach (isset($data['projects']) ? $data['projects'] : array() as $project) {
+        $status = isset($project['status']) ? (string) $project['status'] : '';
+        if ($status === 'in_progress' || $status === 'review') {
             $progress_count += 1;
-            $progress_cents += $project['amount_cents'];
+            $progress_sum += finance_rub(array(
+                'amount' => isset($project['budget']) ? $project['budget'] : 0,
+                'currency' => isset($project['currency']) ? $project['currency'] : 'RUB',
+            ), $rates);
         }
-        $projects[] = $project;
-    }
-
-    $entries = array();
-    $statement = db()->query(
-        'SELECT money_entries.*, work_projects.name AS project_name
-         FROM money_entries
-         LEFT JOIN work_projects ON work_projects.id = money_entries.project_id
-         ORDER BY money_entries.happened_on DESC, money_entries.id DESC
-         LIMIT 80'
-    );
-    foreach ($statement->fetchAll() as $row) {
-        $entries[] = money_present($row);
     }
 
     $months = array(
@@ -152,157 +330,57 @@ function finance_snapshot()
         5 => 'май', 6 => 'июнь', 7 => 'июль', 8 => 'август',
         9 => 'сентябрь', 10 => 'октябрь', 11 => 'ноябрь', 12 => 'декабрь',
     );
-    $month_number = (int) date('n');
 
     return array(
         'ok' => true,
-        'month_label' => isset($months[$month_number]) ? $months[$month_number] : '',
-        'month' => finance_totals($month_start),
-        'all' => finance_totals(''),
+        'month_label' => $months[(int) date('n')],
+        'month' => array(
+            'income_label' => money_format_rub($month['income']),
+            'expense_label' => money_format_rub($month['expense']),
+            'profit_label' => money_format_rub($month['income'] - $month['expense']),
+        ),
+        'all' => array('profit_label' => money_format_rub($all['income'] - $all['expense'])),
+        'cash_label' => money_format_rub($cash),
         'progress_count' => $progress_count,
-        'progress_cents' => $progress_cents,
-        'progress_label' => money_format_cents($progress_cents),
-        'projects' => $projects,
-        'entries' => $entries,
+        'progress_label' => money_format_rub($progress_sum),
     );
 }
 
-function money_add(array $input, $actor_id)
+function finance_add_money(array $input, $actor_id)
 {
-    $kind = isset($input['kind']) ? (string) $input['kind'] : '';
-    if ($kind !== 'income' && $kind !== 'expense') {
-        json_out(array('ok' => false, 'error' => 'kind', 'message' => 'Укажите доход или расход.'), 400);
-    }
-
+    $kind = isset($input['kind']) && $input['kind'] === 'expense' ? 'expense' : 'income';
     $cents = money_cents(isset($input['amount']) ? $input['amount'] : '');
     if ($cents === null) {
         json_out(array('ok' => false, 'error' => 'amount', 'message' => 'Сумма должна быть больше нуля, например 15000.'), 400);
     }
-
     $title = clip_text(isset($input['title']) ? $input['title'] : '', 255);
-    if ($title === '') {
-        $title = $kind === 'income' ? 'Доход' : 'Расход';
-    }
 
-    $happened = isset($input['happened_on']) ? trim((string) $input['happened_on']) : '';
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $happened)) {
-        $happened = date('Y-m-d');
-    }
-
-    $project_id = isset($input['project_id']) ? (int) $input['project_id'] : 0;
-    if ($project_id > 0) {
-        $exists = db()->prepare('SELECT id FROM work_projects WHERE id = :id');
-        $exists->execute(array('id' => $project_id));
-        if (!$exists->fetch()) {
-            $project_id = 0;
-        }
-    }
-
-    $statement = db()->prepare(
-        'INSERT INTO money_entries (kind, amount_cents, title, project_id, happened_on, note, created_by, created_at)
-         VALUES (:kind, :amount_cents, :title, :project_id, :happened_on, :note, :created_by, :created_at)'
-    );
-    $statement->execute(array(
-        'kind' => $kind,
-        'amount_cents' => $cents,
-        'title' => $title,
-        'project_id' => $project_id > 0 ? $project_id : null,
-        'happened_on' => $happened,
-        'note' => clip_text(isset($input['note']) ? $input['note'] : '', 2000),
-        'created_by' => (int) $actor_id,
-        'created_at' => time(),
-    ));
-
-    $snapshot = finance_snapshot();
-    $snapshot['message'] = ($kind === 'income' ? 'Доход ' : 'Расход ') . money_format_cents($cents) . ' записан.';
-    return $snapshot;
-}
-
-function money_delete($id)
-{
-    $statement = db()->prepare('DELETE FROM money_entries WHERE id = :id');
-    $statement->execute(array('id' => (int) $id));
-    if ($statement->rowCount() < 1) {
-        json_out(array('ok' => false, 'error' => 'entry', 'message' => 'Запись не найдена.'), 404);
-    }
-
-    return finance_snapshot();
-}
-
-function project_save(array $input, $actor_id)
-{
-    $name = clip_text(isset($input['name']) ? $input['name'] : '', 255);
-    if ($name === '') {
-        json_out(array('ok' => false, 'error' => 'name', 'message' => 'Напишите название проекта.'), 400);
-    }
-
-    $status = isset($input['status']) ? (string) $input['status'] : 'progress';
-    if (!in_array($status, project_statuses(), true)) {
-        $status = 'progress';
-    }
-
-    $amount_raw = trim((string) (isset($input['amount']) ? $input['amount'] : ''));
-    $amount = money_cents($amount_raw === '' ? '0' : $amount_raw);
-    if ($amount === null) {
-        $normalized = str_replace(array(' ', "\xc2\xa0", ','), array('', '', '.'), $amount_raw);
-        if ($amount_raw === '' || preg_match('/^0+(\.0+)?$/', $normalized)) {
-            $amount = 0;
-        } else {
-            json_out(array('ok' => false, 'error' => 'amount', 'message' => 'Сумма проекта указана неверно.'), 400);
-        }
-    }
-
-    $client = clip_text(isset($input['client']) ? $input['client'] : '', 160);
-    $now = time();
-    $id = isset($input['id']) ? (int) $input['id'] : 0;
-
-    if ($id > 0) {
-        $current = db()->prepare('SELECT id FROM work_projects WHERE id = :id');
-        $current->execute(array('id' => $id));
-        if (!$current->fetch()) {
-            json_out(array('ok' => false, 'error' => 'project', 'message' => 'Проект не найден.'), 404);
-        }
-        $statement = db()->prepare(
-            'UPDATE work_projects
-             SET name = :name, client = :client, amount_cents = :amount_cents, status = :status, updated_at = :updated_at
-             WHERE id = :id'
+    for ($attempt = 0; $attempt < 3; $attempt++) {
+        $row = finance_row();
+        $data = $row['data'];
+        $data['transactions'] = isset($data['transactions']) && is_array($data['transactions']) ? $data['transactions'] : array();
+        $data['transactions'][] = array(
+            'id' => 'tx-' . bin2hex(random_bytes(4)),
+            'type' => $kind,
+            'accountId' => isset($data['accounts'][0]['id']) ? (string) $data['accounts'][0]['id'] : '',
+            'projectId' => '',
+            'category' => $kind === 'income' ? 'Оплата' : 'Расход',
+            'amount' => $cents / 100,
+            'currency' => 'RUB',
+            'date' => date('Y-m-d'),
+            'counterparty' => '',
+            'description' => $title,
         );
-        $statement->execute(array(
-            'name' => $name,
-            'client' => $client,
-            'amount_cents' => $amount,
-            'status' => $status,
-            'updated_at' => $now,
-            'id' => $id,
-        ));
-    } else {
         $statement = db()->prepare(
-            'INSERT INTO work_projects (name, client, amount_cents, status, created_by, created_at, updated_at)
-             VALUES (:name, :client, :amount_cents, :status, :created_by, :created_at, :updated_at)'
+            'UPDATE finance_state SET data = :data, rev = rev + 1, updated_by = :actor, updated_at = :now WHERE id = 1 AND rev = :rev'
         );
-        $statement->execute(array(
-            'name' => $name,
-            'client' => $client,
-            'amount_cents' => $amount,
-            'status' => $status,
-            'created_by' => (int) $actor_id,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ));
+        $statement->execute(array('data' => finance_encode($data), 'actor' => (int) $actor_id, 'now' => time(), 'rev' => $row['rev']));
+        if ($statement->rowCount() > 0) {
+            $summary = finance_summary();
+            $summary['message'] = ($kind === 'income' ? 'Доход ' : 'Расход ') . money_format_rub($cents / 100) . ' записан.';
+            return $summary;
+        }
     }
 
-    return finance_snapshot();
-}
-
-function project_delete($id)
-{
-    $clear = db()->prepare('UPDATE money_entries SET project_id = NULL WHERE project_id = :id');
-    $clear->execute(array('id' => (int) $id));
-    $statement = db()->prepare('DELETE FROM work_projects WHERE id = :id');
-    $statement->execute(array('id' => (int) $id));
-    if ($statement->rowCount() < 1) {
-        json_out(array('ok' => false, 'error' => 'project', 'message' => 'Проект не найден.'), 404);
-    }
-
-    return finance_snapshot();
+    json_out(array('ok' => false, 'error' => 'busy', 'message' => 'Финансы сейчас меняют, попробуйте ещё раз.'), 409);
 }

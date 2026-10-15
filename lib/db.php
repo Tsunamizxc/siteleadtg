@@ -106,6 +106,7 @@ function db_migrate(PDO $pdo, $driver)
         db_migrate_access($pdo, 'mysql');
         db_migrate_office($pdo, 'mysql');
         db_migrate_deliveries($pdo, 'mysql');
+        db_migrate_board($pdo, 'mysql');
         return;
     }
 
@@ -142,6 +143,7 @@ function db_migrate(PDO $pdo, $driver)
     db_migrate_access($pdo, 'sqlite');
     db_migrate_office($pdo, 'sqlite');
     db_migrate_deliveries($pdo, 'sqlite');
+    db_migrate_board($pdo, 'sqlite');
 }
 
 function db_add_column(PDO $pdo, $driver, $table, $column, $definition)
@@ -155,19 +157,112 @@ function db_add_column(PDO $pdo, $driver, $table, $column, $definition)
             'column_name' => $column,
         ));
         if ((int) $statement->fetchColumn() > 0) {
-            return;
+            return false;
         }
         $pdo->exec('ALTER TABLE `' . $table . '` ADD COLUMN `' . $column . '` ' . $definition);
-        return;
+        return true;
     }
 
     $columns = $pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll();
     foreach ($columns as $info) {
         if ((string) $info['name'] === $column) {
-            return;
+            return false;
         }
     }
     $pdo->exec('ALTER TABLE ' . $table . ' ADD COLUMN ' . $column . ' ' . $definition);
+    return true;
+}
+
+function db_table_columns(PDO $pdo, $driver, $table)
+{
+    $names = array();
+    if ($driver === 'mysql') {
+        $statement = $pdo->prepare(
+            'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name'
+        );
+        $statement->execute(array('table_name' => $table));
+        foreach ($statement->fetchAll() as $row) {
+            $names[] = (string) $row['COLUMN_NAME'];
+        }
+        return $names;
+    }
+
+    foreach ($pdo->query('PRAGMA table_info(' . $table . ')')->fetchAll() as $info) {
+        $names[] = (string) $info['name'];
+    }
+    return $names;
+}
+
+function db_migrate_board(PDO $pdo, $driver)
+{
+    $mysql = $driver === 'mysql';
+    $quote = $mysql ? '`' : '';
+    $columns = db_table_columns($pdo, $driver, 'tasks');
+    $wanted = array(
+        'status' => $mysql ? 'VARCHAR(20) NOT NULL DEFAULT "backlog"' : 'TEXT NOT NULL DEFAULT "backlog"',
+        'priority' => $mysql ? 'VARCHAR(10) NOT NULL DEFAULT "normal"' : 'TEXT NOT NULL DEFAULT "normal"',
+        'deadline' => $mysql ? 'VARCHAR(10) NOT NULL DEFAULT ""' : 'TEXT NOT NULL DEFAULT ""',
+        'group_name' => $mysql ? 'VARCHAR(80) NOT NULL DEFAULT ""' : 'TEXT NOT NULL DEFAULT ""',
+        'assignees' => $mysql ? 'VARCHAR(500) NOT NULL DEFAULT ""' : 'TEXT NOT NULL DEFAULT ""',
+        'links' => $mysql ? 'TEXT NULL' : 'TEXT NOT NULL DEFAULT ""',
+        'closed_at' => $mysql ? 'INT UNSIGNED NOT NULL DEFAULT 0' : 'INTEGER NOT NULL DEFAULT 0',
+    );
+    foreach ($wanted as $column => $definition) {
+        if (in_array($column, $columns, true)) {
+            continue;
+        }
+        $pdo->exec('ALTER TABLE ' . $quote . 'tasks' . $quote . ' ADD COLUMN ' . $quote . $column . $quote . ' ' . $definition);
+        if ($column === 'status') {
+            $pdo->exec("UPDATE tasks SET status = 'done' WHERE done = 1");
+        }
+        if ($column === 'closed_at') {
+            $pdo->exec('UPDATE tasks SET closed_at = updated_at WHERE done = 1');
+        }
+    }
+
+    if ($mysql) {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS task_comments (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                task_id INT UNSIGNED NOT NULL,
+                author_id BIGINT NOT NULL DEFAULT 0,
+                body TEXT NOT NULL,
+                created_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (id),
+                KEY comments_task (task_id, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS finance_state (
+                id INT UNSIGNED NOT NULL,
+                data LONGTEXT NOT NULL,
+                rev INT UNSIGNED NOT NULL DEFAULT 1,
+                updated_by BIGINT NOT NULL DEFAULT 0,
+                updated_at INT UNSIGNED NOT NULL,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+        return;
+    }
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS task_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            author_id INTEGER NOT NULL DEFAULT 0,
+            body TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )'
+    );
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS finance_state (
+            id INTEGER PRIMARY KEY,
+            data TEXT NOT NULL,
+            rev INTEGER NOT NULL DEFAULT 1,
+            updated_by INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL
+        )'
+    );
 }
 
 function db_migrate_access(PDO $pdo, $driver)

@@ -151,9 +151,17 @@ function lead_keyboard($chat_id = 0, $kind = 'private')
         return array(
             'inline_keyboard' => array(
                 array(
+                    array('text' => 'Заявки', 'callback_data' => 'leads'),
+                    array('text' => 'Задачи', 'callback_data' => 'tasks'),
+                ),
+                array(
+                    array('text' => 'Деньги', 'callback_data' => 'money'),
+                    array('text' => 'Помощь', 'callback_data' => 'help'),
+                ),
+                array(
                     array(
                         'text' => 'Открыть офис',
-                        'url' => 'https://t.me/cursivalead_bot?startapp',
+                        'url' => 'https://t.me/cursivalead_bot?start=office',
                     ),
                 ),
             ),
